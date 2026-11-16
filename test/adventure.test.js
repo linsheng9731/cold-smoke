@@ -114,6 +114,7 @@ test('all new UI literal copy has English coverage; camera controls are hidden o
 });
 test('native English labels and iOS add-only permission descriptions are bundled as localized resources', () => {
   assert.match(read('android/app/src/main/res/values-en/strings.xml'), /Cold Smoke/);
+  for (const key of ['package_name', 'custom_url_scheme']) assert.ok(read('android/app/src/main/res/values/strings.xml').includes('name="' + key + '" translatable="false"'));
   for (const lang of ['en', 'zh-Hans']) {
     const file = read('ios/App/App/' + lang + '.lproj/InfoPlist.strings');
     assert.match(file, /NSMotionUsageDescription/); assert.match(file, /NSPhotoLibraryAddUsageDescription/); assert.doesNotMatch(file, /NSPhotoLibraryUsageDescription/);
