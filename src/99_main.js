@@ -80,6 +80,7 @@ function tick(dt, draw) {
   App.t += dt;
   Input.update(real);
   Game.update(dt);
+  Adventure.update(real, Game.events);
   if (App.camHook) App.camHook(dt);                                     // (in the headset the lens is the player's own head, set on the game's camera: 21_xr.js)
   const cp = Render.cam.pos, S = Game.s, st = App.state;
   Tracks.step(Game.root, Game.pose, S);
@@ -236,9 +237,12 @@ App.onTick.push(() => {
 // another mountain, now: the course is laid out again from `seed` (a new one when none is given), everything made from the old course
 // is thrown away or made again, and the skier stands at the top of it, on the title page or in a run as before. Returns the seed.
 App.onMountain = [];                             // called with the seed after every change of mountain
-App.newMountain = function (seed, now) {
+App.newMountain = function (seed, now, profile = null) {
   seed = Math.floor(+seed) >= 1 ? +seed : App.randomSeed();
   App.swap(() => {
+    if (!profile) { Adventure.stop(); if (typeof Gates !== 'undefined') Gates.markers = null; }
+    Course.profile = profile;
+    if (profile) Course.forceType = null;
     Course.setSeed(seed); if (Trees.reset) Trees.reset();
     if (Deer.herd) { Deer.herd.length = 0; Deer.next = 36; } if (typeof Fauna !== 'undefined' && Fauna.reset) Fauna.reset();
     Game.reset();

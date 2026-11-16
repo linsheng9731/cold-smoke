@@ -65,6 +65,7 @@
   const D = mk(), R = mk(), C = mk(), O = mk(), CH = mk(), rel = mk(); let relOK = false;
 
   G.setView = function (id, instant) {
+    if (!(typeof DEV !== 'undefined' && DEV)) id = 'chase';
     if (!G.views.some(v => v.id === id)) return G.view;
     if (instant) snap = true;
     if (id !== G.view) { G.view = id; want = id; }
@@ -78,6 +79,7 @@
     const c = e.code;
     if (c === 'KeyI' || c === 'KeyJ' || c === 'KeyK' || c === 'KeyL') { look.keys[c] = true; return; }
     if (e.repeat) return;
+    if (!(typeof DEV !== 'undefined' && DEV)) return;
     if (c === 'KeyV') G.nextView(e.shiftKey ? -1 : 1);
     else { const m = /^(?:Digit|Numpad)([1-9])$/.exec(c); if (m && G.views[m[1] - 1]) G.setView(G.views[m[1] - 1].id); }
   });

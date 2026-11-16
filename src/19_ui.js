@@ -25,6 +25,8 @@ const UI = (() => {
     el.app.classList.toggle('dev', !!U.dev);
     if (!U.dev) el.app.querySelectorAll('.dev-only').forEach(n => n.remove());
     el.moreView = el.more.querySelector('[data-sec="view"]'); el.moreDaily = el.more.querySelector('[data-daily]'); el.daily = $('sw-daily'); el.mtDaily = el.menu.querySelector('section[data-sec="mt"] [data-daily]');
+    const adventureButton = document.createElement('button'); adventureButton.type = 'button'; adventureButton.dataset.sec = 'adventure'; adventureButton.textContent = '冒险旅程'; el.more.prepend(adventureButton);
+    el.go.lastChild.nodeValue = '自由滑';
     I18N.capture(el.app); I18N.on(relang);
     U.layout();
     el.go.addEventListener('click', e => { e.stopPropagation(); U.go(); });
@@ -64,7 +66,7 @@ const UI = (() => {
       if (!on && !own) U.pause();          // thrown out of the whole screen (the system's Esc, a back gesture): the run waits
     }); /*}web*/
     // nothing here scrolls or zooms
-    el.app.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    el.app.addEventListener('touchmove', e => { if (U.open && e.target.closest('#mpane, #menu nav')) return; e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault());
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('visibilitychange', () => { if (!document.hidden && U.state === 'run') U.keepAwake(); });
@@ -73,6 +75,7 @@ const UI = (() => {
     initSwitch();
     initSplits();
     initVariants();
+    if (typeof AdventureUI !== 'undefined') AdventureUI.init();
     if (typeof Rank !== 'undefined') try { Rank.init(); } catch (e) { console.warn(e); }          // (the boards, inside 小红书 only: 19b_rank.js)
     if (typeof XHS !== 'undefined') try { XHS.init(el); } catch (e) { console.warn(e); }            // (the host's buttons, settings, notes, follow: 19c_xhs.js)
   };
@@ -132,6 +135,7 @@ const UI = (() => {
     let asked = false; if (!XR.active) try { asked = await Promise.race([Input.requestTilt(), new Promise(r => setTimeout(() => r(false), 8000))]); } catch (e) { }
     Input.zeroPending = true; U.keepAwake();
     launch();
+    if (typeof Adventure !== 'undefined') Adventure.activate();
     U.state = 'run'; U.t0 = performance.now(); U.segIdx = -1; U.hintT = 0; U.hintKind = null; U.tiltAsked = asked;
     newRun();
     el.shade.classList.add('run'); el.hud.classList.add('on'); el.app.classList.add('run');
@@ -443,11 +447,12 @@ const UI = (() => {
   }
   // which part of the menu is open
   function show(s) {
-    if (!U.dev && (s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'view';
-    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'view'; sec = s;
+    if (!U.dev && (s === 'view' || s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'adventure';
+    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure'; sec = s;
     for (const b of el.nav.querySelectorAll('button[data-sec]')) b.classList.toggle('on', b.dataset.sec === s);
     for (const x of el.pane.children) x.classList.toggle('on', x.dataset.sec === s);
     el.pane.scrollTop = 0; paint();
+    if (s === 'adventure' && typeof AdventureUI !== 'undefined') AdventureUI.render();
     if (s === 'rank' && typeof Rank !== 'undefined') Rank.show();
     if (s === 'share' && typeof XHS !== 'undefined') XHS.show();
   }
@@ -456,6 +461,7 @@ const UI = (() => {
     if (!el || U.gone) return;
     if (typeof on === 'string') { if (U.open && sec === on) on = false; else { show(on); on = true; } }
     if (on == null) on = !U.open; if (on === U.open) return;
+    if (!on && typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status)) return;
     if (on && !live()) return;
     if (on && U.state === 'run') holdOn();
     U.open = on; if (on) { if (!el.pane.querySelector('section.on')) show(sec); paint(); el.say.classList.remove('on'); sayT = 0; }
@@ -474,7 +480,7 @@ const UI = (() => {
   function flash(b) { if (!b) return; b.classList.add('hit'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('hit'), 1500); }
   // which of the named hours the clock is nearest to
   function hour() { const C = Sky.cycle, c = ((Sky.clock % C) + C) % C; let best = TIMES[0][0], bd = 1e9; for (const [id] of TIMES) { let d = Math.abs(c - Sky.times[id]); d = Math.min(d, C - d); if (d < bd) { bd = d; best = id; } } return best; }
-  const views = () => Game.views && Game.views.length && Game.setView ? Game.views : null;
+  const views = () => U.dev && Game.views && Game.views.length && Game.setView ? Game.views : null;
   const viewName = () => { const vs = views(); if (!vs) return ''; const v = vs.find(q => q.id === Game.view) || vs[0]; return v.name || String(v.id); };          // (said through T by say)
   // the menu as things stand: the hour held (or, with the clock running, the hour it has reached), the run being skied, the view, the
   // mountain, and whatever of animals, weather and versions this build has
@@ -853,6 +859,7 @@ const UI = (() => {
     el.cut.classList.add('slow'); el.cut.style.opacity = 1; cut = { t: 0, stage: 9, n: 0, fn: null };
     setTimeout(() => {
       el.cut.classList.remove('slow');
+      if (typeof Adventure !== 'undefined' && Adventure.run) Adventure.leave();
       if (App.swapping) App.swapping.run = false;          // (another mountain still being laid out behind its veil must not set off down it under the title)
       try { Game.reset(); Game.mode = 'title'; } catch (e) { console.warn(e); }
       settle(); Input.drag = null; Input.keys = {}; U.state = 'title'; back = null; App.resumeK = 1; App.paused = false;
@@ -861,6 +868,18 @@ const UI = (() => {
       cut = { t: 0, stage: 1, n: 0, fn: null }; hush(Sound.on ? Sound.level : 0, 0.4); paint();
     }, 300);
     return true;
+  };
+  U.beginAdventure = function (id) {
+    if (!App.ready || U.gone || !live() || Adventure.access(id) !== 'open') return false;
+    Adventure.stop();
+    if (U.open) U.menu(false);
+    if (!Adventure.start(id)) return false;
+    U.state = 'title'; U.go(); return true;
+  };
+  U.freeSki = function () {
+    if (!App.ready || U.gone || !live()) return false;
+    Adventure.stop(); if (U.open) U.menu(false);
+    Adventure.leave(); U.state = 'title'; U.go(); return true;
   };
   // the picture itself is gone (the graphics device was taken away: the loop tells us). Nothing can be drawn again from here: say so, start over on a tap
   U.lost = function () {

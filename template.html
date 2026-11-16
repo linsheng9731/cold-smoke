@@ -392,6 +392,21 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #app.mobile.wide.short .cta .how { font-size: 12px; line-height: 1.5; margin-top: 8px; }
 #app.mobile #menu nav { touch-action: pan-y; overscroll-behavior: contain; }
 #app.mobile #menu nav button { min-height: 44px; flex-shrink: 0; }
+#app:not(.dev) [data-sec="view"], #app:not(.dev) #vw, #app:not(.dev) .camera-help { display: none !important; }
+#app.menuopen { touch-action: pan-y; }
+#adv-hud { position: absolute; top: var(--gt); left: var(--gl); max-width: min(320px, 46%); padding: 12px 16px; border-left: 2px solid var(--sun); border-radius: 0 8px 8px 0; background: rgba(5,8,13,.63); font-family: var(--f-ui); font-size: 12px; line-height: 1.5; text-shadow: 0 1px 5px #05080d; }
+#adv-hud[hidden] { display: none; } #adv-hud b { display: block; font-size: 17px; color: var(--sun); } #adv-hud p { margin: 2px 0; } #adv-hud small { font-variant-numeric: tabular-nums; }
+#app.adventure #seg, #app.adventure #day { display: none; }
+#adv-content { display: flex; flex-direction: column; gap: 18px; font-family: var(--f-ui); line-height: 1.5; letter-spacing: .02em; }
+#adv-content h2, #adv-content h3, #adv-content p { margin: 0; } #adv-content h2 { font-size: 24px; color: var(--sun); } #adv-content h3 { font-size: 17px; font-weight: 500; }
+.adv-chapter { display: flex; flex-direction: column; gap: 10px; } #adv-content .adv-note { font-size: 12px; color: var(--dim); }
+.adv-level { display: flex; flex-direction: column; gap: 5px; width: 100%; box-sizing: border-box; text-align: left; background: rgba(10,18,28,.7); color: var(--snow); border: 1px solid var(--hair); border-radius: 9px; padding: 15px; font: inherit; cursor: pointer; }
+.adv-level b { font-size: 16px; font-weight: 500; } .adv-level span { font-size: 13px; } .adv-level small { font-size: 12px; color: var(--dim); } .adv-level em { font-size: 12px; font-style: normal; color: var(--sun); }
+.adv-level:disabled { opacity: .6; cursor: default; } .adv-level:enabled:hover { border-color: var(--sun); }
+.adv-result, .adv-offer { padding: 16px; border: 1px solid rgba(230,187,126,.5); border-radius: 10px; background: rgba(9,17,26,.8); display: flex; flex-direction: column; gap: 10px; }
+.adv-actions { display: flex; flex-wrap: wrap; gap: 10px; } .adv-button { min-height: 44px; padding: 10px 15px; border: 1px solid var(--hair); border-radius: 6px; background: rgba(5,8,13,.5); color: var(--snow); font: inherit; font-size: 13px; cursor: pointer; }
+.adv-button.primary { border-color: var(--sun); color: var(--sun); } .adv-level:focus-visible, .adv-button:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; } .adv-warning { color: var(--sun); font-size: 12px; }
+
 /* ---- English (#app.en, set by I18N): the Song lines become a light Latin serif, and the wide spacing that suits single characters is drawn in */
 #app.en { --f-song: "Cormorant Garamond", "Noto Serif SC", Georgia, "Times New Roman", serif; }
 #app.en #title .tag { font-size: clamp(16px, 4.4vmin, 20px); letter-spacing: .14em; margin-right: -.14em; font-style: italic; }
@@ -474,6 +489,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
     </footer>
   </section>
   <section id="hud" class="layer">
+    <div id="adv-hud" hidden><b id="adv-title"></b><p id="adv-goal"></p><p id="adv-guide"></p><small id="adv-clock"></small></div>
     <div id="seg"><small id="seg-en"></small><b id="seg-cn"></b><div class="split"><p id="split"></p></div></div>
     <div id="hint"><i></i><span id="hint-t"></span></div>
     <div class="spd"><b id="spd">0</b><span class="unit">KM/H<em id="drop2"></em></span><span class="tach"><i id="tach"></i></span></div>
@@ -498,6 +514,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <small class="mk" id="m-k">PAUSED · 暂停</small>
       <button type="button" id="m-go">继续滑</button>
       <button type="button" id="m-photo">拍照</button>
+      <button type="button" data-sec="adventure">冒险旅程</button>
       <i class="msep"></i>
       <button type="button" class="dev-only" data-sec="sky">天色与天气</button>
       <button type="button" data-sec="view">视角</button>
@@ -513,6 +530,7 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <button type="button" class="xs dev-only" data-sec="vers">版本对比</button>
     </nav>
     <div class="mpane" id="mpane">
+      <section data-sec="adventure"><h4>首轮内测 · 5 / 12 关</h4><div id="adv-content"></div></section>
       <section class="dev-only" data-sec="sky"><h4>TIME · 天色<kbd>T</kbd></h4><div class="cards" id="sw-time"></div>
         <div class="gap"></div><div id="sw-wx" hidden><h4>WEATHER · 天气<kbd>X</kbd></h4><div class="cards wxc" id="sw-wxc"></div></div>
         <p class="note">选中立刻生效，后面的画面会跟着变。「自动」让一天自己走下去，琥珀色小点是现在走到的时刻。</p>
@@ -533,10 +551,10 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
       <section data-sec="keys"><h4>CONTROLS · 操作说明</h4>
         <div class="keys2 desk-only">
           <div class="keys"><b>← →　A D</b><span>转弯（按久了会切雪）</span><b>空格</b><span>跳，按住蓄力</span><b class="nofa">↓　S</b><span class="nofa">压低加速，慢的时候撑杖</span><b class="fa-only">↑ ↓　W S</b><span class="fa-only">压板头 · 压板尾：入弯压头切得紧，出弯压尾冲出去，弯尾还压头会搓雪减速</span><b class="fa-only">Shift</b><span class="fa-only">压低加速，慢的时候撑杖</span><b>右键拖　I J K L</b><span>环顾四周</span></div>
-          <div class="keys"><b>V</b><span>换视角</span><b>M　F</b><span>静音 · 全屏</span><b>Esc　H</b><span>菜单 · 这一页</span></div>
+          <div class="keys"><b class="camera-help">V</b><span class="camera-help">换视角</span><b>M　F</b><span>静音 · 全屏</span><b>Esc　H</b><span>菜单 · 这一页</span></div>
           <div class="keys dev-only"><b>T　X</b><span>换时间 · 换天气</span><b>N</b><span>下一种路段</span><b>G　P</b><span>叫出动物 · 航班</span><b>R</b><span>换一座山</span><b>`</b><span>版本对比</span></div>
         </div>
-        <div class="keys hand-only"><b>按住拖动</b><span>左右拖动转弯，拖过刻度就切雪</span><b class="fa-only">上下拖动</b><span class="fa-only">往上压板头，往下压板尾</span><b>跳</b><span>按住蓄力，松开起跳</span><b>加速</b><span>按住压低，慢的时候自动撑杖</span><b>机位</b><span>换视角</span><b>两指拖动</b><span>环顾四周</span></div>
+        <div class="keys hand-only"><b>按住拖动</b><span>左右拖动转弯，拖过刻度就切雪</span><b class="fa-only">上下拖动</b><span class="fa-only">往上压板头，往下压板尾</span><b>跳</b><span>按住蓄力，松开起跳</span><b>加速</b><span>按住压低，慢的时候自动撑杖</span><b class="camera-help">机位</b><span class="camera-help">换视角</span><b>两指拖动</b><span>环顾四周</span></div>
         <p class="note desk-only">Shift + 字母 往回切换。</p>
         <p class="note">暂停菜单里点「拍照」：时间全部停住，界面收起，自由移动镜头取景，再按快门存图。</p></section>
       <section data-sec="opt"><h4>SETTINGS · 设置<kbd>M</kbd><kbd>F</kbd></h4><div class="chips opts"><button type="button" id="o-snd" aria-pressed="true">声音 开</button><button type="button" id="o-fs" aria-pressed="false">全屏</button><button type="button" id="o-lang" lang="en">English</button><button type="button" id="o-q">画质 自动</button></div>

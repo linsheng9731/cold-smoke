@@ -2,7 +2,7 @@
 const fs = require('fs'), path = require('path');
 const root = __dirname, srcDir = path.join(root, 'src');
 const files = fs.readdirSync(srcDir).filter(f => f.endsWith('.js')).sort();
-let js = '';
+let js = 'self.COLD_SMOKE = { ...self.COLD_SMOKE, betaPreview: true };\n';
 for (const f of files) js += '\n// ===== ' + f + ' =====\n' + fs.readFileSync(path.join(srcDir, f), 'utf8');
 const tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
 const out = tpl.replace('/*__JS__*/', () => js);

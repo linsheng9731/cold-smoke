@@ -4,7 +4,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 const native = Capacitor.isNativePlatform();
-self.COLD_SMOKE = { ...self.COLD_SMOKE, mobile: true, noDev: true };
+self.COLD_SMOKE = { ...self.COLD_SMOKE, mobile: true, noDev: true, betaPreview: true };
 
 let initialized = false;
 let sharing = false;
