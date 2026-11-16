@@ -140,6 +140,12 @@ test('scripted camera views remain available while normal camera shortcuts are d
   assert.match(read('src/19_ui.js'), /U\.setView = function[^\n]+!U.dev/);
   assert.match(read('src/19_ui.js'), /U\.nextView = function[^\n]+!U.dev/);
 });
+test('mobile adventure HUD reserves space beneath speed and omits conflicting free-ski hints', () => {
+  const template = read('template.html');
+  assert.match(template, /#app\.adventure:not\(\.desk\) #adv-hud \{ top: calc\(var\(--gt\) \+ var\(--spd\) \* \.9 \+ 46px\)/);
+  assert.match(template, /#app\.adventure #hint \{ display: none/);
+  assert.match(template, /#app\.short #adv-hud \{ padding: 8px 12px; font-size: 11px/);
+});
 test('native English labels and iOS add-only permission descriptions are bundled as localized resources', () => {
   assert.match(read('android/app/src/main/res/values-en/strings.xml'), /Cold Smoke/);
   for (const key of ['package_name', 'custom_url_scheme']) assert.ok(read('android/app/src/main/res/values/strings.xml').includes('name="' + key + '" translatable="false"'));
