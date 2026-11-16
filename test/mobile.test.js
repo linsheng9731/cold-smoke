@@ -225,3 +225,9 @@ test('Android build helper rejects unexpected Gradle tasks', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /Unknown Android build task/);
 });
+
+test('iOS photo saving declares add-only library access without library read access', () => {
+  const plist = read('ios/App/App/Info.plist');
+  assert.match(plist, /<key>NSPhotoLibraryAddUsageDescription<\/key>\s*<string>[^<]+<\/string>/);
+  assert.doesNotMatch(plist, /<key>NSPhotoLibraryUsageDescription<\/key>/);
+});

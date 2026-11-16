@@ -67,5 +67,7 @@
 	<true/>
 	<key>NSMotionUsageDescription</key>
 	<string>允许倾斜手机控制滑雪方向；也可以使用触屏拖动。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>将你拍摄的滑雪照片保存到系统相册。</string>
 </dict>
 </plist>
