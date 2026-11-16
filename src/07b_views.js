@@ -65,7 +65,6 @@
   const D = mk(), R = mk(), C = mk(), O = mk(), CH = mk(), rel = mk(); let relOK = false;
 
   G.setView = function (id, instant) {
-    if (!(typeof DEV !== 'undefined' && DEV)) id = 'chase';
     if (!G.views.some(v => v.id === id)) return G.view;
     if (instant) snap = true;
     if (id !== G.view) { G.view = id; want = id; }

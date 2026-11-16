@@ -129,6 +129,17 @@ test('adventure initializes and rerenders on a legacy WebView without replaceChi
   assert.equal(root.children.flatMap(n => n.children).filter(n => n.dataset.level).length, 5);
   c.adventureUI.render(); assert.equal(root.children.length, count);
 });
+test('scripted camera views remain available while normal camera shortcuts are disabled', () => {
+  const { c } = harness({ physics: true }), events = {};
+  c.DEV = false; c.addEventListener = (type, fn) => { (events[type] ||= []).push(fn); };
+  vm.runInContext(read('src/07b_views.js'), c);
+  const key = (code, shiftKey = false) => events.keydown.forEach(fn => fn({ code, shiftKey }));
+  for (const code of ['KeyV', 'Digit2', 'Numpad3']) { key(code); key(code, true); assert.equal(c.Game.view, 'chase'); }
+  for (const id of ['fp', 'front', 'low', 'chase']) { assert.equal(c.Game.setView(id, true), id); assert.equal(c.Game.view, id); }
+  c.DEV = true; key('KeyV'); assert.equal(c.Game.view, 'fp');
+  assert.match(read('src/19_ui.js'), /U\.setView = function[^\n]+!U.dev/);
+  assert.match(read('src/19_ui.js'), /U\.nextView = function[^\n]+!U.dev/);
+});
 test('native English labels and iOS add-only permission descriptions are bundled as localized resources', () => {
   assert.match(read('android/app/src/main/res/values-en/strings.xml'), /Cold Smoke/);
   for (const key of ['package_name', 'custom_url_scheme']) assert.ok(read('android/app/src/main/res/values/strings.xml').includes('name="' + key + '" translatable="false"'));

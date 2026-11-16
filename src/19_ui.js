@@ -805,8 +805,8 @@ const UI = (() => {
     flash(el.ev.querySelector('[data-plane]')); say('偶遇', v);
   };
   // ---- the views: picked by name in the menu, or stepped through (V, and the glyph over the jump)
-  U.setView = function (id) { if (!live() || !Game.setView) return; try { Game.setView(id); } catch (e) { console.warn(e); } paint(); };
-  U.nextView = function (dir) { if (!live() || !Game.nextView) return; try { Game.nextView(dir || 1); } catch (e) { console.warn(e); } paint(); say('视角', viewName()); };
+  U.setView = function (id) { if (!U.dev || !live() || !Game.setView) return; try { Game.setView(id); } catch (e) { console.warn(e); } paint(); };
+  U.nextView = function (dir) { if (!U.dev || !live() || !Game.nextView) return; try { Game.nextView(dir || 1); } catch (e) { console.warn(e); } paint(); say('视角', viewName()); };
 
   // ---- a run held, and taken up again. Held, nothing of the run steps (Game.mode 'hold': the skier, the clock of the day, the animals and
   // the counts all wait) while the picture is still drawn, so the menu's changes show behind it. The world is let go gently: at three
