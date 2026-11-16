@@ -18,7 +18,7 @@ const Quality = (() => {
   const Q = { LEVELS, pick: 'auto', tier: 0, guess: 0, gpu: '', why: '', L: LEVELS[0], subs: [], downs: 0, ups: 0 };
   const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const put = k => v => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { } if (Q.keep) Q.keep(k, v == null ? '' : v); };
-  const handheld = () => !!(window.matchMedia && matchMedia('(pointer: coarse) and (hover: none)').matches);
+  const handheld = () => !!(self.COLD_SMOKE && self.COLD_SMOKE.mobile) || !!(window.matchMedia && matchMedia('(pointer: coarse) and (hover: none)').matches);
 
   // the GPU's own name (the page can usually read it), sorted into a first guess. Only phones are guessed down: a computer starts at 高
   function gpuName() {

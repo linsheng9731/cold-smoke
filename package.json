@@ -5,11 +5,36 @@
   "license": "MIT",
   "private": true,
   "homepage": "https://huisky.xyz/cold-smoke/play",
-  "repository": { "type": "git", "url": "https://github.com/huiskylabs/cold-smoke.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/huiskylabs/cold-smoke.git"
+  },
   "scripts": {
     "build": "node build.js",
+    "build:mobile": "node tools/build-mobile.js",
+    "mobile:assets": "node tools/generate-mobile-assets.js",
+    "sync:mobile": "npm run build:mobile && cap sync",
+    "android:apk": "npm run build:mobile && cap sync android && node tools/android-build.js assembleDebug",
+    "android:bundle": "npm run build:mobile && cap sync android && node tools/android-build.js bundleRelease",
+    "open:android": "cap open android",
+    "open:ios": "cap open ios",
+    "test": "node --test test/*.test.js",
     "start": "node build.js && node tools/serve.js",
     "build:xhs": "node tools/build-xhs.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/app": "8.0.0",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/filesystem": "8.0.0",
+    "@capacitor/ios": "8.6.2",
+    "@capacitor/share": "8.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.2",
+    "esbuild": "0.25.12"
+  }
 }

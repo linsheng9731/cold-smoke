@@ -57,7 +57,13 @@ What makes it unusual is what the repository **doesn't** contain:
 
 The **Immersive** button on the title page only appears in a browser that can open a headset (Safari on Apple Vision Pro). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#immersive-mode-apple-vision-pro).
 
-### Run it locally
+### iOS and Android apps
+
+Native mobile projects are included in `ios/` and `android/`, using Capacitor. They bundle the game and fonts for offline play, keep the screen awake, use landscape orientation, pause on backgrounding, handle Android Back, and share photo-mode pictures through the system share sheet. The browser build remains a standalone page with no runtime dependencies.
+
+With Node.js 22+, run `npm install`, then `npm run sync:mobile`. Use `npm run android:apk` for an installable **debug APK** (JDK 21 and Android SDK 36 required), or `npm run open:ios` on a Mac with Xcode 26+ to build for iOS. Store releases need your own app identifiers, developer accounts and signing credentials; none are included. See [the mobile build guide](docs/MOBILE.md) for build commands, signing, limitations and the device test checklist.
+
+### Browser development
 
 You need [Node.js](https://nodejs.org) 18 or newer and a browser with WebGPU or WebGL2 (any recent Chrome, Edge, Safari or Firefox).
 
@@ -150,7 +156,13 @@ If you like it, a ⭐ helps other people find it.
 
 标题页的「沉浸模式」按钮只在能打开头显的浏览器里出现（Apple Vision Pro 的 Safari）。
 
-### 在本地运行
+### 打包 iOS／安卓手游
+
+已包含 Capacitor 原生工程（`ios/`、`android/`），游戏和字体随安装包离线运行。原生端支持横屏、刘海安全区、常亮、切后台暂停、安卓返回键及拍照的系统分享菜单；网页版本仍然独立构建，不加载原生依赖。
+
+需要 Node.js 22+，先运行 `npm install`、`npm run sync:mobile`。安卓配置 JDK 21 和 Android SDK 36 后运行 `npm run android:apk`，生成可安装的**调试 APK**。iOS 在安装 Xcode 26+ 的 Mac 上运行 `npm run open:ios`。正式上架需使用自己的应用标识、开发者账号和签名，详见 [移动端打包说明](docs/MOBILE.md)。
+
+### 网页开发
 
 需要 [Node.js](https://nodejs.org) 18 以上，和支持 WebGPU 或 WebGL2 的浏览器（最近版本的 Chrome、Edge、Safari、Firefox 都可以）。
 

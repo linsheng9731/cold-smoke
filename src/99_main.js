@@ -325,5 +325,6 @@ addEventListener('resize', () => App.redraw());
 if (QS.has('manual') && !QS.has('ui')) document.getElementById('app').classList.add('bare');
 else {
   UI.init();
+  if (self.ColdSmokeMobile) ColdSmokeMobile.init({ onActive: UI.nativeActive, onBack: UI.nativeBack }).catch(e => console.warn('mobile', e));
   boot(UI.stage).then(() => { UI.ready(); lastT = performance.now(); requestAnimationFrame(loop); if (QS.has('autostart')) UI.go(); }).catch(e => { if (!retryOnWebGL2(e)) reportError(e); });
 }

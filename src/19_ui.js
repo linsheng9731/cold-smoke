@@ -8,7 +8,7 @@ const UI = (() => {
   const TIMES = [['day', '白天'], ['golden', '傍晚'], ['sunset', '日落'], ['dusk', '黄昏'], ['night', '夜晚'], ['dawn', '黎明']];
   const mq = q => !!(window.matchMedia && matchMedia(q).matches);
   // a thing held in the hands (finger, no mouse) or a thing on a desk (keys and a pointer)
-  const handheld = () => mq('(pointer: coarse) and (hover: none)') || (!mq('(pointer: fine)') && 'ontouchstart' in window);
+  const handheld = () => !!(self.COLD_SMOKE && self.COLD_SMOKE.mobile) || mq('(pointer: coarse) and (hover: none)') || (!mq('(pointer: fine)') && 'ontouchstart' in window);
   let el = null, wake = null, fsT = -1e9;
 
   U.init = function () {
@@ -110,8 +110,9 @@ const UI = (() => {
   U.keepAwake = function () { try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wake = w; }, () => { }); } catch (e) { } };
   // the whole screen, where the browser allows it. On a phone that also lets us ask for the picture to be laid wide for real
   // (/*web{*/ … /*}web*/ is left out of the 小红书 小工具 build: the container manages the screen and forbids asking for it, tools/build-xhs.js)
-  function fsAvail() { /*web{*/ return !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen; /*}web*/ return false; }
+  function fsAvail() { if (self.ColdSmokeMobile && ColdSmokeMobile.native) return false; /*web{*/ return !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen; /*}web*/ return false; }
   U.fullscreen = function (on) {
+    if (self.ColdSmokeMobile && ColdSmokeMobile.native) return;
     /*web{*/ try {
       const is = !!document.fullscreenElement; if (on == null) on = !is; if (on === is) return;
       fsT = performance.now();          // (asked for here: the change that follows, and any loss of focus it brings, is not the player leaving)
@@ -134,6 +135,7 @@ const UI = (() => {
     U.state = 'run'; U.t0 = performance.now(); U.segIdx = -1; U.hintT = 0; U.hintKind = null; U.tiltAsked = asked;
     newRun();
     el.shade.classList.add('run'); el.hud.classList.add('on'); el.app.classList.add('run');
+    if (U.nativeHidden || document.hidden) U.pause();
   };
   function showHint(kind) {
     U.hintKind = kind; el.hint.className = kind + ' on';
@@ -423,7 +425,7 @@ const UI = (() => {
     addEventListener('blur', () => { letGo(); if (performance.now() - fsT > 1200) U.pause(); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { letGo(); U.pause(); if (hold) App.paused = true; }          // (out of sight nothing is drawn at all)
-      else if (App.paused && !U.gone) App.paused = false;
+      else if (App.paused && !U.gone && !U.nativeHidden) App.paused = false;
     });
     // a mountain named in the address while the page is open (a link followed, the back button) is gone to as well. Outside dev the address cannot name one.
     addEventListener('hashchange', () => { if (!U.dev) return; const m = /^#seed-(\d{1,9})$/.exec(location.hash); if (m && +m[1] !== Course.seed) U.newMountain(+m[1]); });
@@ -806,6 +808,21 @@ const UI = (() => {
   // loop; the slow motion of a jump (Game.timeScale) scales the same time again inside the step, so the two multiply. However the phone is
   // being held now is 'straight ahead' again. A skier put somewhere else meanwhile (a run, another mountain) pushes off from there
   function letGo() { for (const h of held) { h.id = null; h.drop = false; h.seen = true; h.set(false); } }
+  U.nativeActive = function (active) {
+    U.nativeHidden = !active;
+    if (!active) {
+      letGo(); Input.reset(); U.pause(); App.paused = true;
+      if (Sound.ctx) Sound.ctx.suspend().catch(() => {});
+    } else if (!U.gone) {
+      App.paused = false;
+      if (Sound.ctx && Sound.unlocked) Sound.ctx.resume().catch(() => {});
+    }
+  };
+  U.nativeBack = function () {
+    if (typeof Photo !== 'undefined' && Photo.on) { Photo.exit(); return true; }
+    if (U.open) { U.menu(false); return true; }
+    return U.pause();
+  };
   function hush(level, tau) { try { if (Sound.rig && Sound.unlocked && Sound.ctx) Sound.rig.fade(level, Sound.ctx.currentTime, tau); } catch (e) { } }
   function holdOn() {
     if (hold || U.state !== 'run') return;

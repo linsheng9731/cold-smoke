@@ -50,6 +50,7 @@ const I18N = (() => {
     '暂停菜单里点「拍照」：时间全部停住，界面收起，自由移动镜头取景，再按快门存图。': 'Photo, in the pause menu: time stops, the interface goes away, move the lens anywhere and press the shutter to save the picture.',
     '保存到相册': 'Save', '继续拍': 'Keep shooting', '也可以长按图片保存': 'Or press and hold the picture to save it',
     '已保存': 'Saved', '没能拍下来': 'Could not take the picture',
+    '没能分享照片，请重试': 'Could not share the picture. Please try again.',
     '右边拖动转视角 · 左边摇杆移动 · 双指缩放': 'Drag on the right to look · stick on the left to move · pinch to zoom',
     '拖动鼠标转视角 · WASD 移动 · Q E 升降 · 滚轮缩放 · Z C 歪斜 · R 复位 · H 隐藏文字': 'Drag to look · WASD to move · Q E down / up · wheel to zoom · Z C tilt · R reset · H hide text',
     '天色与天气': 'Time & weather', '换一座山': 'New mountain', '操作说明': 'Controls', '设置': 'Settings', '回到山顶': 'Back to the top', '版本对比': 'Versions',

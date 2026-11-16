@@ -318,6 +318,9 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #app.short #go, #app.short .cta .more button { height: 28px; padding: 0 12px; gap: 8px; font-size: 13px; }
 #app.short #go svg, #app.short .cta .more svg { width: 15px; height: 15px; }
 #app.short .cta .how { margin-top: 2px; }
+#app.mobile.short .cta .act, #app.mobile.short .cta .more { gap: 5px; }
+#app.mobile.short #go, #app.mobile.short .cta .more button { min-height: 44px; }
+#app.mobile #bar button, #app.mobile #menu .opts button, #app.mobile #photo button { min-height: 44px; min-width: 44px; }
 /* (and in a run, held in the hands: the next view, over the jump) */
 #vw { right: calc(var(--gr) + 22px); bottom: calc(var(--gb) + 124px); width: 44px; height: 44px; }
 #vw svg { width: 20px; height: 20px; display: block; margin: auto; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
@@ -378,6 +381,17 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #app.short:not(.desk) #seg { top: calc(var(--gt) + 4px); left: calc(var(--gl) + var(--spd) * 1.8 + 22px); }
 /* a short wide frame: the mountain's name sits in the top of this column for a moment, so the title starts under it, and the cards tighten so the hint still clears the foot */
 #app.wide.short #title { justify-content: flex-start; gap: 8px; padding-top: 58px; padding-bottom: calc(var(--gb) + 16px); }
+#app.mobile.wide.short #title { flex-direction: row; align-items: center; justify-content: space-between; gap: 24px; padding-top: calc(var(--gt) + 16px); padding-bottom: calc(var(--gb) + 16px); }
+#app.mobile.wide.short #title .mark { flex: 1; min-width: 0; }
+#app.mobile.wide.short #title .cta { width: min(48%, 300px); flex-shrink: 0; }
+#app.mobile.wide.short .cta .act { width: 100%; }
+#app.mobile.wide.short .cta .more { display: grid; grid-template-columns: 1fr 1fr; }
+#app.mobile.wide.short .cta .more [data-sec="view"] { grid-column: 1; grid-row: 1; }
+#app.mobile.wide.short .cta .more [data-sec="keys"] { grid-column: 2; grid-row: 1; }
+#app.mobile.wide.short .cta .more [data-sec="mt"] { grid-column: 1 / -1; grid-row: 2; }
+#app.mobile.wide.short .cta .how { font-size: 12px; line-height: 1.5; margin-top: 8px; }
+#app.mobile #menu nav { touch-action: pan-y; overscroll-behavior: contain; }
+#app.mobile #menu nav button { min-height: 44px; flex-shrink: 0; }
 /* ---- English (#app.en, set by I18N): the Song lines become a light Latin serif, and the wide spacing that suits single characters is drawn in */
 #app.en { --f-song: "Cormorant Garamond", "Noto Serif SC", Georgia, "Times New Roman", serif; }
 #app.en #title .tag { font-size: clamp(16px, 4.4vmin, 20px); letter-spacing: .14em; margin-right: -.14em; font-style: italic; }

@@ -100,7 +100,7 @@ function toHalf(v) {
 // positions goes through here: the size of the frame, where a finger is inside it, and which way is down.
 const View = (() => {
   const V = { rot: 0, w: 0, h: 0, forced: false, flip: false, wide: true, short: false };
-  const handheld = () => !!(window.matchMedia && matchMedia('(pointer: coarse) and (hover: none)').matches);
+  const handheld = () => !!(self.COLD_SMOKE && self.COLD_SMOKE.mobile) || !!(window.matchMedia && matchMedia('(pointer: coarse) and (hover: none)').matches);
   V.measure = function () {
     const iw = innerWidth, ih = innerHeight;
     V.forced = V.force != null ? V.force : handheld() && ih > iw * 1.04;

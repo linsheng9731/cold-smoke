@@ -47,14 +47,20 @@ const Input = (() => {
   // swings the skis on round to straight across the fall line (a hockey stop), not just a third of the way. Read in step()
   Variants.def('tb', '转弯刹车', [['a', '原来'], ['b', '物理']], 'b');
   const I = { u: 0, fa: 0, faV: 0, faT: 0, faScript: null, btn: { jump: false, tuck: false }, jump: false, tuck: false, mode: 'touch', xr: null, tiltOK: false, tiltSeen: -1e9, gx: 0, zero: 0, keys: {}, drag: null, kb: 0, kHeld: 0, kWas: 0, script: null, used: false };
+  I.reset = function () {
+    I.keys = {}; I.drag = null; I.mute = null;
+    I.btn.jump = I.btn.tuck = I.jump = I.tuck = false;
+    I.u = I.fa = I.faV = I.faT = I.kb = I.kbV = I.kHeld = I.kWas = 0;
+    I.zeroPending = true;
+  };
   I.init = function (el) {
     addEventListener('keydown', e => { if (e.code !== I.mute) I.keys[e.code] = true; }); addEventListener('keyup', e => { I.keys[e.code] = false; if (e.code === I.mute) I.mute = null; });
     // (I.mute: a key the interface has used, held down still: a space that confirmed a menu or started the run is not also a jump)
     el.addEventListener('pointerdown', e => { const x = View.x(e), y = View.y(e); I.drag = { id: e.pointerId, x0: x, x, y0: y, y }; try { el.setPointerCapture(e.pointerId); } catch (_) { } });
     el.addEventListener('pointermove', e => { if (I.drag && e.pointerId === I.drag.id) { I.drag.x = View.x(e); I.drag.y = View.y(e); } });
     const up = e => { if (I.drag && e.pointerId === I.drag.id) I.drag = null; };
-    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
-    addEventListener('blur', () => { I.keys = {}; I.drag = null; });
+    el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+    addEventListener('blur', I.reset);
     // where the browser hands out tilt without asking (Android), listen from the start: the title page can then tell which way up it is held
     /*web{*/ try { if (typeof DeviceOrientationEvent !== 'undefined' && !DeviceOrientationEvent.requestPermission) { addEventListener('deviceorientation', I.onOrient); I.listening = true; } } catch (e) { } /*}web*/
   };

@@ -162,6 +162,11 @@ const Photo = self.Photo = (() => {
   }
   async function saveShot() {
     if (!shot) return; const { b, name } = shot;
+    if (self.ColdSmokeMobile && ColdSmokeMobile.native) {
+      try { await ColdSmokeMobile.sharePhoto(b, name); closeShot(); }
+      catch (e) { if (!/cancel/i.test(e && e.message || '')) tell('没能分享照片，请重试'); }
+      return;
+    }
     try {
       const f = new File([b], name, { type: 'image/png' });
       if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f] }); closeShot(); tell('已保存'); return; }
