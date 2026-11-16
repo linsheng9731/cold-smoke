@@ -4,6 +4,11 @@
   "webDir": "dist-mobile",
   "backgroundColor": "#05080d",
   "loggingBehavior": "debug",
+  "plugins": {
+    "SystemBars": {
+      "hidden": true
+    }
+  },
   "android": {
     "minWebViewVersion": 100,
     "allowMixedContent": false,

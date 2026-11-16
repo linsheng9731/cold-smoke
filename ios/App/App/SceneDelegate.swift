@@ -33,6 +33,5 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 class GameViewController: CAPBridgeViewController {
     override var prefersStatusBarHidden: Bool { true }
-    override var prefersHomeIndicatorAutoHidden: Bool { true }
     override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge { [.bottom] }
 }

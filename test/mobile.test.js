@@ -214,6 +214,12 @@ test('release packaging fails before Gradle when signing credentials are absent'
   assert.match(result.stderr, /Missing release signing variable: COLD_SMOKE_KEYSTORE/);
 });
 
+test('iOS hides the Home indicator through the supported SystemBars configuration', () => {
+  const config = JSON.parse(read('capacitor.config.json'));
+  assert.equal(config.plugins.SystemBars.hidden, true);
+  assert.doesNotMatch(read('ios/App/App/SceneDelegate.swift'), /override var prefersHomeIndicatorAutoHidden/);
+});
+
 test('Android build helper rejects unexpected Gradle tasks', () => {
   const result = spawnSync(process.execPath, ['tools/android-build.js', 'unknown'], { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 1);
