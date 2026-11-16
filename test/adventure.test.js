@@ -112,6 +112,23 @@ test('all new UI literal copy has English coverage; camera controls are hidden o
   assert.match(read('template.html'), /#app:not\(\.dev\) \[data-sec="view"\]/); assert.match(read('src/19_ui.js'), /const views = \(\) => U.dev &&/);
   assert.ok(read('src/99_main.js').indexOf('Adventure.update(real, Game.events)') < read('src/99_main.js').indexOf('Game.events.length = 0'));
 });
+test('adventure initializes and rerenders on a legacy WebView without replaceChildren', () => {
+  class Element {
+    constructor() { this.children = []; this.dataset = {}; this.classList = { toggle() {} }; }
+    set textContent(value) { this.text = value; this.children = []; }
+    append(...nodes) { this.children.push(...nodes); }
+    addEventListener() {}
+  }
+  const { c } = harness(), elements = {};
+  c.document = { getElementById: id => elements[id] || (elements[id] = new Element()), createElement: () => new Element() };
+  c.App.onTick = [];
+  vm.runInContext(read('src/19e_adventure_ui.js') + '\nglobalThis.adventureUI = AdventureUI;', c);
+  c.adventureUI.init();
+  const root = elements['adv-content'], count = root.children.length;
+  assert.ok(count > 0); assert.equal(root.children.filter(n => n.className === 'adv-chapter').length, 3);
+  assert.equal(root.children.flatMap(n => n.children).filter(n => n.dataset.level).length, 5);
+  c.adventureUI.render(); assert.equal(root.children.length, count);
+});
 test('native English labels and iOS add-only permission descriptions are bundled as localized resources', () => {
   assert.match(read('android/app/src/main/res/values-en/strings.xml'), /Cold Smoke/);
   for (const key of ['package_name', 'custom_url_scheme']) assert.ok(read('android/app/src/main/res/values/strings.xml').includes('name="' + key + '" translatable="false"'));

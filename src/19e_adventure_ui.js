@@ -20,7 +20,7 @@ const AdventureUI = (() => {
     App.onTick.push(V.frame); V.render();
   };
   V.render = function () {
-    if (!root) return; root.replaceChildren();
+    if (!root) return; root.textContent = '';
     const r = Adventure.run, result = r && r.result;
     $('app').classList.toggle('adventure', !!r); $('m-go').hidden = !!result;
     if (result) {
