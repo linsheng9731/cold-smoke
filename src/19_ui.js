@@ -438,7 +438,10 @@ const UI = (() => {
         return;
       }
       if (b.id === 'pause-resume') { U.resume(); return; }
-      if (b.id === 'pause-restart') { U.toTop(!!(typeof Adventure !== 'undefined' && Adventure.run)); return; }
+      if (b.id === 'pause-restart') {
+        const adventureRun = typeof Adventure !== 'undefined' && Adventure.run;
+        U.toTop(!!adventureRun, !adventureRun); return;
+      }
       if (b.id === 'pause-photo') { if (typeof Photo !== 'undefined') Photo.enter(); return; }
       if (b.id === 'pause-quit') { $('pause-confirm').hidden = false; $('pause-quit-confirm').focus(); return; }
       if (b.id === 'pause-quit-cancel') { $('pause-confirm').hidden = true; $('pause-quit').focus(); return; }
@@ -929,7 +932,7 @@ const UI = (() => {
     resumeIntent = true; U.menu(false); return true;
   };
   // back to the gate and the title page (the picture goes to black first; the menu's own clock times that)
-  U.toTop = function (restartAdventure = false) {
+  U.toTop = function (restartAdventure = false, restartFreeSki = false) {
     if (!el || U.state !== 'run' || U.gone) return false;
     const retry = restartAdventure && typeof Adventure !== 'undefined' && Adventure.run ? Adventure.run.level.id : null;
     U.state = 'leaving';          // (neither a run nor the title until the black is down: no key does anything)
@@ -945,6 +948,7 @@ const UI = (() => {
       el.day.classList.remove('held');
       cut = { t: 0, stage: 1, n: 0, fn: null }; hush(Sound.on ? Sound.level : 0, 0.4); paint();
       if (retry && Adventure.start(retry)) U.go();
+      else if (restartFreeSki) U.go();
     }, 300);
     return true;
   };
