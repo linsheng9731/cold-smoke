@@ -17,9 +17,10 @@ function harness(options = {}) {
     Sky: { clock: 620, times: { day: 620, golden: 969, sunset: 1110, dawn: 299 }, setClock(t) { this.clock = t; } },
     Weather: { level: 'light', auto: true, set(v) { this.level = v; this.auto = false; }, setAuto(v) { this.auto = v; } },
     Gates: { reset() {} } });
-  const files = ['00_util.js', '00a_i18n.js', '00b_variants.js', '03_course.js', '03b_levels.js', ...(options.physics ? ['07_game.js'] : []), '07e_adventure.js'];
-  vm.runInContext(files.map(f => read('src/' + f)).join('\n') + '\nglobalThis.api = { Adventure, AdventureLevels, Course, Variants, I18N, Game, Input };', c);
+  const files = ['00_util.js', '00a_i18n.js', '00b_variants.js', '00c_equipment.js', '03_course.js', '03b_levels.js', ...(options.physics ? ['07_game.js'] : []), '07e_adventure.js'];
+  vm.runInContext(files.map(f => read('src/' + f)).join('\n') + '\nglobalThis.api = { Adventure, AdventureLevels, Course, Variants, I18N, Game, Input, Equipment };', c);
   c.Game = c.api.Game; c.Input = c.api.Input; c.Game.setView = () => {};
+  if (options.equipment) { c.UI.state = 'title'; c.api.Equipment.select(options.equipment); c.UI.state = 'run'; }
   const a = c.api.Adventure; a.init(); a.on(() => calls.push('change'));
   const begin = (id = 'pine-1') => { assert.equal(a.start(id), true); if (options.physics) c.Game.start(); else c.Game.mode = 'run'; a.activate(); return a.run; };
   const cross = (p, events = [], dt = 1) => { c.Game.s.p = [p.x, 0, -p.s - 0.1]; a.update(dt, events); };
@@ -155,8 +156,8 @@ test('native English labels and iOS add-only permission descriptions are bundled
   }
   assert.match(read('ios/App/App.xcodeproj/project.pbxproj'), /InfoPlist.strings in Resources/);
 });
-test('all five levels can be cleared by the real ski physics without teleporting', { timeout: 240000 }, () => {
-  const h = harness({ physics: true }), { Game, Input } = h.c;
+for (const equipment of ['ski', 'snowboard']) test('all five levels can be cleared by the real ' + equipment + ' physics without teleporting', { timeout: 240000 }, () => {
+  const h = harness({ physics: true, equipment }), { Game, Input } = h.c;
   for (const l of h.AdventureLevels.levels) {
     if (l.chapter !== 'pine') h.a.tryUnlock();
     const r = h.begin(l.id), pc = {}, tn = {}, dt = 1 / 120;
@@ -171,4 +172,113 @@ test('all five levels can be cleared by the real ski physics without teleporting
     }
     assert.equal(r.status, 'completed', l.id + ': ' + JSON.stringify({ result: r.result, position: Game.s.p, gates: r.next }));
   }
+});
+
+test('equipment preference defaults safely, persists valid choices and protects future saves', () => {
+  for (const value of [null, 'broken', '{"version":1,"selected":"sled"}', '{"version":8,"selected":"snowboard"}']) {
+    const h = harness({ data: value ? { 'coldsmoke.equipment.v1': value } : {} });
+    assert.equal(h.Equipment.selected, 'ski');
+  }
+  const h = harness(); h.c.UI.state = 'title';
+  assert.equal(h.Equipment.select('snowboard'), true); assert.equal(harness({ data: h.data }).Equipment.selected, 'snowboard');
+  h.c.Game.mode = 'run'; assert.equal(h.Equipment.select('ski'), false);
+  assert.equal(h.Equipment.selected, 'snowboard');
+  const future = '{"version":8,"selected":"ski"}', next = harness({ data: { 'coldsmoke.equipment.v1': future } });
+  next.c.UI.state = 'title'; assert.equal(next.Equipment.select('snowboard'), true); assert.equal(next.data['coldsmoke.equipment.v1'], future);
+  const quota = harness({ quota: true }); quota.c.UI.state = 'title'; assert.doesNotThrow(() => quota.Equipment.select('snowboard'));
+  assert.equal(quota.Equipment.selected, 'snowboard');
+});
+test('equipment records preserve legacy skis, share unlocks and keep snowboard bests separate on reload', () => {
+  const ski = harness(); ski.complete();
+  const saved = ski.data[PK], boardKey = 'coldsmoke.adventure.snowboard.v1';
+  const board = harness({ equipment: 'snowboard', data: ski.data });
+  assert.equal(board.a.access('pine-2'), 'open'); assert.equal(board.a.record('pine-1'), undefined);
+  board.complete(); assert.equal(board.data[PK], saved); assert.ok(JSON.parse(board.data[boardKey]).completed['pine-1']);
+  assert.ok(board.a.record('pine-1', 'ski')); assert.ok(board.a.record('pine-1', 'snowboard'));
+  board.complete('pine-2'); const reload = harness({ data: board.data });
+  assert.equal(reload.a.access('pine-3'), 'open'); assert.equal(reload.a.record('pine-2', 'ski'), undefined);
+  assert.ok(reload.a.record('pine-2', 'snowboard'));
+  assert.equal(reload.Equipment.key('coldsmoke.daily', 'ski'), 'coldsmoke.daily');
+  assert.equal(reload.Equipment.key('coldsmoke.skied', 'snowboard'), 'coldsmoke.skied.snowboard.v1');
+  for (const id of ['pine-3', 'pine-4']) board.complete(id);
+  assert.equal(board.a.tryUnlock(), true); assert.equal(harness({ data: board.data }).a.access('mist-1'), 'open');
+});
+test('future snowboard progress is not overwritten and corrupted snowboard saves do not erase ski progress', () => {
+  const key = 'coldsmoke.adventure.snowboard.v1', future = '{"version":9,"completed":{}}';
+  const h = harness({ equipment: 'snowboard', data: { [key]: future } }); h.complete(); assert.equal(h.data[key], future);
+  const ski = harness(); ski.complete();
+  const broken = harness({ data: { ...ski.data, [key]: 'bad' } }); assert.equal(broken.a.access('pine-2'), 'open');
+});
+test('snowboard has no pole events, strokes or hidden low-speed propulsion; skis retain their push-off', () => {
+  const h = harness({ physics: true, equipment: 'snowboard' }), { Game, Input } = h;
+  h.Course.height = () => 0; h.Course.normal = () => [0, 1, 0];
+  h.Course.at = (_, o) => Object.assign(o || {}, { cx: 0, hw: 100, powder: 0, mog: 0, ridge: 0, rtail: 0 });
+  h.Course.nearTree = (_, __, o) => { o.ok = false; }; h.Course.rockHit = () => false;
+  Game.reset(); Game.events.length = 0; Game.start(); Input.tuck = true;
+  for (let i = 0; i < 600; i++) Game.step(1 / 120, 0);
+  assert.equal(Game.s.dpGo, 0); assert.equal(Game.s.dp, 0); assert.equal(Game.s.autoP, false);
+  assert.ok(Math.hypot(Game.s.v[0], Game.s.v[2]) < 1e-9);
+  assert.ok(!Game.events.some(e => ['pole', 'push'].includes(e.type)));
+  const ski = harness({ physics: true }); ski.Game.reset(); ski.Game.start();
+  assert.equal(ski.Game.s.dpGo, 3); assert.ok(ski.Game.events.some(e => e.type === 'push'));
+});
+test('regular snowboard stance fixes both feet to one board and keeps the head looking downhill', () => {
+  const h = harness({ physics: true }); vm.runInContext(read('src/08_skier.js') + '\nglobalThis.rig = Skier;', h.c);
+  for (const edge of [-0.6, 0, 0.6]) {
+    const s = h.c.rig.solve({ equipment: 'snowboard', edge, crouch: 0.5, dp: 0.5, lead: 1, liftL: 1, liftR: 2, grabL: 1 });
+    const a = s.J.footL, b = s.J.footR;
+    assert.ok(Math.abs(a[0] - b[0]) < 1e-8); assert.ok(Math.abs(a[1] - b[1]) < 1e-8);
+    assert.ok(Math.abs(b[2] - a[2] - 0.56) < 1e-8); assert.ok(a[2] < 0);
+    assert.equal(s.J.plantedL + s.J.plantedR, 0); assert.equal(s.dp, null);
+    assert.ok(s.hb.Z[2] > 0.9); assert.ok(s.F.filter(Boolean).every(m => m.every(Number.isFinite)));
+  }
+});
+test('snowboard playtime is local and freezes for pause, background and photo mode', () => {
+  const h = harness({ equipment: 'snowboard' }), E = h.Equipment; h.Game.mode = 'run';
+  E.tick(0.2); h.c.App.paused = true; E.tick(0.2); h.c.App.paused = false;
+  h.c.Photo.on = true; E.tick(0.2); h.c.Photo.on = false; h.c.UI.nativeHidden = true; E.tick(0.2);
+  E.saveTime(); assert.equal(JSON.parse(h.data['coldsmoke.playtime.snowboard.v1']).seconds, 0.2);
+  assert.equal(h.data['coldsmoke.playtime'], undefined);
+});
+test('snowboard never queues scores or minutes onto unsupported external ski leaderboards', async () => {
+  const h = harness(), submissions = [];
+  const section = { addEventListener() {}, classList: { contains: () => false } }, nav = {};
+  h.c.document = { hidden: false, addEventListener() {}, getElementById: id => id === 'menu' ? { querySelector: sel => sel.includes('nav') ? nav : section } : null };
+  h.c.window = { xhs: { miniTool: { submitScore: async s => submissions.push(s), getRankList: async () => ({}), getMyRank: async () => null } } };
+  h.c.App.onTick = []; h.c.UI.sp = { run: { v: 30, air: 50 } };
+  vm.runInContext(read('src/19b_rank.js'), h.c);
+  const rank = h.c.self.Rank; rank.init(); h.Game.mode = 'run'; h.Game.equipment = 'snowboard';
+  h.c.App.onTick.forEach(fn => fn(0.2)); await rank.flush(); assert.equal(submissions.length, 0);
+  h.Game.equipment = 'ski'; h.c.App.onTick.forEach(fn => fn(0.2)); await rank.flush();
+  assert.ok(submissions.some(s => s.board === 1)); assert.ok(submissions.some(s => s.board === 2));
+});
+test('all equipment UI and control hints have English translations', () => {
+  const { I18N } = harness();
+  for (const file of ['src/19f_equipment_ui.js', 'src/00c_equipment.js']) {
+    for (const [, value] of read(file).matchAll(/'([^'\n]*[\u3400-\u9fff][^'\n]*)'/g)) assert.notEqual(I18N.t(value), value);
+  }
+  assert.match(read('src/19f_equipment_ui.js'), /e\.stopPropagation\(\)/);
+  assert.match(read('src/19f_equipment_ui.js'), /e\.code === 'Space' \|\| e\.code === 'Enter'/);
+});
+
+test('equipment selector consumes pointer and keyboard activation without starting a run', () => {
+  class Element {
+    constructor(tag = 'div') { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.handlers = {}; this.attrs = {}; this.isConnected = true; }
+    appendChild(n) { this.children.push(n); n.parentNode = this; return n; }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    addEventListener(k, fn) { this.handlers[k] = fn; }
+    querySelectorAll(tag) { return this.children.filter(n => n.tagName.toLowerCase() === tag); }
+    querySelector(tag) { return this.querySelectorAll(tag)[0]; }
+    click() { if (!this.disabled) this.handlers.click({ stopPropagation() {} }); }
+  }
+  const h = harness(); h.c.UI.state = 'title';
+  h.c.document = { createElement: tag => new Element(tag) };
+  vm.runInContext(read('src/19f_equipment_ui.js') + '\nglobalThis.equipmentUI = EquipmentUI;', h.c);
+  const group = h.c.equipmentUI.append(new Element()), [ski, board] = group.querySelectorAll('button');
+  let stopped = 0, prevented = 0;
+  group.handlers.pointerdown({ stopPropagation() { stopped++; } }); board.click();
+  group.handlers.keydown({ code: 'Space', repeat: false, target: ski, stopPropagation() { stopped++; }, preventDefault() { prevented++; } });
+  assert.equal(h.Game.mode, 'title'); assert.equal(h.Equipment.selected, 'ski'); assert.equal(stopped, 2); assert.equal(prevented, 1);
+  h.Game.mode = 'run'; h.c.UI.state = 'run'; h.c.equipmentUI.refresh();
+  assert.equal(board.disabled, true); assert.equal(ski.disabled, true);
 });

@@ -93,7 +93,7 @@ const Rank = self.Rank = (() => {
     const p = pend[id]; if (!p || p.per !== per || v > p.v) pend[id] = { per, v };
   }
   function tick(dt) {
-    if (!R.on) return;
+    if (!R.on || Equipment.current() === 'snowboard') return;
     roll();
     const live = typeof Game !== 'undefined' && Game.mode === 'run' && !document.hidden;
     if (live && dt > 0) { const k = Math.min(dt, 0.25); P.ds += k; P.ws += k; P.as += k; }
@@ -156,6 +156,7 @@ const Rank = self.Rank = (() => {
   }
   async function render() {
     if (!el || !R.on) return;
+    if (Equipment.current() === 'snowboard') { el.sec.textContent = T('单板成绩仅保存在本机，不提交双板排行榜。'); return; }
     const list = views(); let bd = list.find(v => v.id === view); if (!bd) { view = list[0].id; bd = list[0]; }
     const my = ++sig, s = el.sec; if (!(period in bd.boards)) period = PERIODS.find(([id]) => id in bd.boards)[0]; const board = bd.boards[period];
     s.textContent = '';

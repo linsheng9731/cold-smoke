@@ -6,6 +6,14 @@
 // any zh* is Chinese, everything else English.
 const I18N = (() => {
   const EN = {
+    '双板': 'Ski', '单板': 'Snowboard', '选择器材': 'Choose equipment',
+    '单板：左右拖动换刃，前推并转向刹车；右下角跳跃 / 收身。': 'Snowboard: drag to change edges; push forward while turning to brake. Jump / Tuck at bottom right.',
+    '单板：← → 换刃；↑＋转向刹车；空格跳跃；Shift 收身。': 'Snowboard: ← → change edges; ↑ + turn to brake; Space jump; Shift tuck.',
+    '左脚在前；左右换刃，前推并转向横滑刹车。': 'Regular stance (left foot first). Steer to change edges; push forward while turning to brake.',
+    '本局器材已锁定，返回标题后更换。': 'Equipment locked for this run. Return to the title to change it.',
+    '出发前选择；双板玩法保持不变。': 'Choose before starting. Original ski controls are unchanged.',
+    '单板成绩仅保存在本机，不提交双板排行榜。': 'Snowboard records stay on this device and are not sent to the ski leaderboard.',
+    '解锁共用，星级和最佳用时按器材分别记录。': 'Unlocks are shared. Stars and best times are separate for each equipment.',
     '冒险旅程': 'Adventure', '自由滑': 'Free Ski', '首轮内测 · 5 / 12 关': 'BETA · 5 OF 12 LEVELS',
     '松林营地': 'Pine Basecamp', '雾谷峡道': 'Mistfall Valley', '暮光高脊': 'Twilight Ridge',
     '从第一道雪迹，到独自下山': 'From first tracks to your first solo descent',

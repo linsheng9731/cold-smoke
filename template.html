@@ -300,6 +300,13 @@ body { background: var(--ink); color: var(--snow); overflow: hidden; overscroll-
 #app.menuopen #pad button { opacity: 0; pointer-events: none; }
 /* (held in the hands the drop stands on the speed's own line) */
 #hud #drop2 { display: none; font-style: normal; margin-left: 1.3em; } #app:not(.desk) #hud #drop2 { display: inline; }
+ .equipment { pointer-events: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.equipment button { appearance: none; min-height: 44px; border: 1px solid var(--hair); border-radius: 8px; background: rgba(5,8,13,.85); color: var(--snow); padding: 6px 10px; font: 14px var(--f-ui); cursor: pointer; }
+.equipment button[aria-pressed="true"] { border-color: var(--sun); color: var(--sun); }
+.equipment button:focus-visible { outline: 2px solid var(--sun); outline-offset: 2px; }
+.equipment button:disabled { cursor: default; opacity: .65; }
+.equipment small { grid-column: 1 / -1; font: 11px/1.5 var(--f-ui); letter-spacing: 0; color: var(--dim); max-width: 340px; }
+#app.short .cta .equipment small { display: none; }
 /* the title's other ways in, in one column under 出发: 视角, 滑过的山, 操作. Same cards as the time and weather tiles (10px, --hair, --sun ring, --dim / --snow) */
 .cta .act { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }
 .cta .more { display: flex; flex-direction: column; align-items: stretch; width: 100%; gap: 10px; }

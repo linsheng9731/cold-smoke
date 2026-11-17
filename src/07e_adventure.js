@@ -1,6 +1,7 @@
 const Adventure = (() => {
   const PROGRESS = 'coldsmoke.adventure.v1', DEMO = 'coldsmoke.beta.entitlements.v1';
-  const A = { run: null, progress: {}, demoUnlocked: false, storageWarning: false, compatible: true, listeners: [] };
+  const BOARD_PROGRESS = 'coldsmoke.adventure.snowboard.v1';
+  const A = { run: null, progress: {}, boardProgress: {}, boardCompatible: true, demoUnlocked: false, storageWarning: false, compatible: true, listeners: [] };
   let initialized = false, environment = null;
   const beta = () => !!(self.COLD_SMOKE && self.COLD_SMOKE.betaPreview);
   const notify = () => { for (const f of A.listeners) f(); };
@@ -11,6 +12,14 @@ const Adventure = (() => {
   }
   A.init = function () {
     if (initialized) return; initialized = true;
+    try {
+      const p = JSON.parse(localStorage.getItem(BOARD_PROGRESS) || 'null');
+      if (p && p.version !== 1) { A.boardCompatible = false; A.storageWarning = true; }
+      else if (p && p.completed && typeof p.completed === 'object') for (const l of AdventureLevels.levels) {
+        const r = p.completed[l.id];
+        if (r && Number.isInteger(r.stars) && r.stars >= 1 && r.stars <= 3 && validTime(r.best)) A.boardProgress[l.id] = { stars: r.stars, best: r.best };
+      }
+    } catch (_) { A.storageWarning = true; }
     try {
       const raw = localStorage.getItem(PROGRESS), p = raw ? JSON.parse(raw) : null;
       if (p && p.version !== 1) { A.compatible = false; A.storageWarning = true; }
@@ -27,16 +36,18 @@ const Adventure = (() => {
     } catch (e) { A.storageWarning = true; }
   };
   A.isBeta = beta;
+  A.cleared = id => !!(A.progress[id] || A.boardProgress[id]);
+  A.record = (id, equipment = typeof Equipment !== 'undefined' ? Equipment.current() : 'ski') => (equipment === 'snowboard' ? A.boardProgress : A.progress)[id];
   A.on = f => A.listeners.push(f);
   A.access = function (id) {
     A.init(); const l = AdventureLevels.get(id); if (!l) return 'unreleased';
     const index = AdventureLevels.levels.indexOf(l), prev = AdventureLevels.levels[index - 1];
-    if (prev && !A.progress[prev.id]) return 'progress';
+    if (prev && !A.cleared(prev.id)) return 'progress';
     if (l.chapter !== 'pine' && !(beta() && A.demoUnlocked)) return 'demo';
     return 'open';
   };
   A.tryUnlock = function () {
-    A.init(); if (!beta() || !A.progress['pine-4']) return false;
+    A.init(); if (!beta() || !A.cleared('pine-4')) return false;
     A.demoUnlocked = true;
     const saved = write(DEMO, { version: 1, mode: 'beta-preview', unlocked: true }); notify(); return saved;
   };
@@ -52,7 +63,7 @@ const Adventure = (() => {
     const level = AdventureLevels.get(id);
     if (!environment) environment = { clock: Sky.clock, weather: Weather.level, auto: Weather.auto };
     Game.mode = 'title';
-    A.run = { level, status: 'ready', elapsed: 0, next: 0, landings: 0, crashes: 0, tookOff: false, previous: null, result: null };
+    A.run = { level, equipment: typeof Equipment !== 'undefined' ? Equipment.selected : 'ski', status: 'ready', elapsed: 0, next: 0, landings: 0, crashes: 0, tookOff: false, previous: null, result: null };
     Sky.setClock(Sky.times[level.time]); Weather.set(level.weather, true);
     App.newMountain(level.seed, true, level.terrain);
     A.run.checkpoints = level.gates.map(([s, offset, half]) => ({ s, x: Course.at(s, {}).cx + offset * Course.at(s, {}).hw, half }));
@@ -80,11 +91,11 @@ const Adventure = (() => {
     const r = A.run; if (!r || r.status !== 'running') return;
     r.status = ok ? 'completed' : 'failed';
     const stars = ok ? 1 + +(r.elapsed <= r.level.par) + +(r.crashes <= r.level.maxCrashes) : 0;
-    r.result = { ok, reason, stars, time: r.elapsed, crashes: r.crashes };
+    r.result = { ok, reason, equipment: r.equipment, stars, time: r.elapsed, crashes: r.crashes };
     if (ok) {
-      const old = A.progress[r.level.id];
-      A.progress[r.level.id] = { stars: Math.max(stars, old ? old.stars : 0), best: Math.min(r.elapsed, old ? old.best : Infinity) };
-      if (A.compatible) write(PROGRESS, { version: 1, completed: A.progress });
+      const board = r.equipment === 'snowboard', records = board ? A.boardProgress : A.progress, old = records[r.level.id];
+      records[r.level.id] = { stars: Math.max(stars, old ? old.stars : 0), best: Math.min(r.elapsed, old ? old.best : Infinity) };
+      if (board ? A.boardCompatible : A.compatible) write(board ? BOARD_PROGRESS : PROGRESS, { version: 1, completed: records });
     }
     Game.mode = 'hold'; Input.reset(); notify();
   }

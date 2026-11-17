@@ -260,7 +260,7 @@ const Spray = (() => {
     const fx = tt[0] * cb + rr[0] * sb, fy = tt[1] * cb + rr[1] * sb, fz = tt[2] * cb + rr[2] * sb;
     const ox = -turn * (rr[0] * cb - tt[0] * sb), oy = -turn * (rr[1] * cb - tt[1] * sb), oz = -turn * (rr[2] * cb - tt[2] * sb);
     // (the inside ski runs a little ahead of the outside one, as the figure and its tracks have it)
-    const stance = Game.pose.stance * 0.5, lead = -turn * (Game.pose.lead || 0), v = S.v;
+    const board = Game.equipment === 'snowboard', stance = board ? 0.14 : Game.pose.stance * 0.5, lead = board ? 0 : -turn * (Game.pose.lead || 0), v = S.v;
     // How fast the edge throws: about as fast as it is ploughing sideways through the snow (a carving edge still cuts outward a little),
     // more where the snow is squeezed out from under the base. Real spray is quick: the wall beside a hard turn is up in a tenth of a second
     const Nq = Math.min(N, 2.8), latq = lat * Nq / Math.max(N, 1e-3);
@@ -316,7 +316,7 @@ const Spray = (() => {
       const u1 = rnd(), u2 = rnd(), u3 = rnd(), u4 = rnd(), jt = rnd() * H, tail = rnd() < tailP;
       // the outside ski does most of the work. Running straight, the snow pressed under each ski springs up behind its tail and is left
       // there: a low rooster tail, taller the faster the skis go
-      const side = tail ? (rnd() < 0.5 ? 1 : -1) : (rnd() < 0.74 ? 1 : -1);
+      const side = board ? 1 : tail ? (rnd() < 0.5 ? 1 : -1) : (rnd() < 0.74 ? 1 : -1);
       const al = tail ? -0.78 - 0.14 * u1 : lerp(-0.86, alMax, u1 * u1 * 0.4 + u1 * 0.6) + side * lead, lo = side * stance + (tail ? (u3 - 0.5) * 0.09 : 0.05);
       const lx = fx * al + ox * lo - v[0] * jt, lz = fz * al + oz * lo - v[2] * jt;
       const px = S.p[0] + lx, pz = S.p[2] + lz, py = base - (n[0] * lx + n[2] * lz) / n[1] + 0.04;

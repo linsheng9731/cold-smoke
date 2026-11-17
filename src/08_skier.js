@@ -99,6 +99,7 @@ const Skier = (() => {
   K.DP = DP;
 
   function solve(p, sec) {
+    if (p.equipment === 'snowboard') return solveBoard(p);
     sec = sec || SEC0;
     const lean = p.lean || 0, sl = Math.sin(lean), al = Math.abs(sl), edge = p.edge || 0, tuck = sat(p.tuck || 0), air = sat(p.air || 0);
     const stance = p.stance == null ? 0.31 : p.stance, lead = p.lead || 0, liftL = p.liftL || 0, liftR = p.liftR || 0, armL = p.armL || P0.armL, armR = p.armR || P0.armR;
@@ -359,6 +360,22 @@ const Skier = (() => {
     add(J.shL, J.shR, 0.075, 0.075, [0.85, 0.45, 0.2]); add(J.neck, J.skull, 0.06, 0.06, [0.2, 0.2, 0.3]);
     return o;
   };
+  function solveBoard(p) {
+    const edge = clamp(p.edge || 0, -0.85, 0.85), b = basis(0, 0, edge), lift = 0.145 * Math.abs(Math.sin(edge));
+    const R = m4.fromBasis(b.X, b.Y, b.Z, [0, lift + 0.025, 0]);
+    const side = m4.fromBasis([0, 0, 1], [0, 1, 0], [-1, 0, 0], [0, 0, 0]);
+    const M = m4.mul(R, side);
+    const s = solve(Object.assign({}, P0, { crouch: Math.max(0.28, p.crouch || 0), tuck: p.tuck || 0, air: p.air || 0,
+      stance: 0.56, headYaw: -PI / 2, sep: -0.25, armL: [-0.06, 0.10, -0.08], armR: [0.06, 0.10, 0.08] }));
+    for (const k in s.J) if (Array.isArray(s.J[k]) && s.J[k].length === 3) s.J[k] = m4.tp(M, s.J[k]);
+    s.F = s.F.map(f => f ? m4.mul(M, f) : f);
+    for (const name of ['hb', 't1', 't2', 'pb', 'fbL', 'fbR']) {
+      const f = s[name]; s[name] = { X: m4.td(M, f.X), Y: m4.td(M, f.Y), Z: m4.td(M, f.Z) };
+    }
+    // The unused left pole bone carries the one rigid board; boots remain on their foot bones.
+    s.F[B.poleL] = R; s.J.board = [0, lift + 0.025, 0]; s.J.plantedL = s.J.plantedR = 0;
+    s.dp = null; s.hp = [null, null]; return s;
+  }
   K.solve = solve; K.P0 = P0; K.B = B; K.LEN = LEN; K.fixMesh = m => fixMesh(m);
 
   // ---- skin: the bind -> pose matrix of every bone (model space)
@@ -683,6 +700,21 @@ const Skier = (() => {
     mb.sweep(rings, [9, 1, 0, 0], [0, 0, 1], [0, 0, -1]);
     return fixMesh(mb.done());
   }
+  function snowboardMesh() {
+    const mb = meshBuilder(), rings = [];
+    for (let i = 0; i <= 40; i++) {
+      const z = lerp(-0.80, 0.80, i / 40), az = Math.abs(z);
+      const w = (0.14 + 0.025 * smooth(0.2, 0.65, az)) * Math.sqrt(Math.max(0.01, 1 - Math.pow(Math.max(0, az - 0.65) / 0.151, 2)));
+      const y = 0.075 * Math.pow(smooth(0.57, 0.80, az), 2);
+      rings.push([[-w, y, z], [w, y, z], [w, y + 0.018, z], [-w, y + 0.018, z]].map(q => [q, [0, 1, 0]]));
+    }
+    mb.sweep(rings, [9, 1, 0, 0], [0, 0, -1], [0, 0, 1]);
+    for (const z of [-0.28, 0.28]) {
+      const rings = [0.018, 0.055].map(y => [[-0.14, y, z - 0.055], [0.14, y, z - 0.055], [0.14, y, z + 0.055], [-0.14, y, z + 0.055]].map(q => [q, [0, 1, 0]]));
+      mb.sweep(rings, [10, 1, 0, 0], [0, -1, 0], [0, 1, 0]);
+    }
+    return fixMesh(mb.done());
+  }
   function poleMesh() {   // (local y = 0 is the middle of the fist that holds it)
     const mb = meshBuilder(), rings = [], prof = [[0.075, 0.004], [0.07, 0.015], [0.0, 0.017], [-0.10, 0.015], [-0.105, 0.0085], [-0.60, 0.0075], [-1.03, 0.006], [-1.04, 0.034], [-1.048, 0.034], [-1.056, 0.006], [-1.14, 0.003]];
     for (const [y, r] of prof) { const ring = []; for (let k = 0; k < 7; k++) { const a = k / 7 * TAU; ring.push([[Math.cos(a) * r, y, Math.sin(a) * r], [0, 1, 0]]); } rings.push(ring); }
@@ -695,7 +727,8 @@ const Skier = (() => {
   K.meshes = {};
   K.build = function (v) {
     v = v === 'a' || v === 'b' ? v : (Variants.val.body === 'a' ? 'a' : 'b');
-    if (K.meshes[v]) return (K.mesh = K.meshes[v]);
+    const equipment = typeof Game !== 'undefined' && Game.equipment === 'snowboard' ? 'snowboard' : 'ski', key = v + ':' + equipment;
+    if (K.meshes[key]) return (K.mesh = K.meshes[key]);
     if (!bind) { bind = solve(P0); invBind = bind.F.map(m => m ? m4.invert(m) : null); K.bind = bind; bind.seatC = m4.tp(bind.F[B.pelvis], SEATC); }
     const nb = v === 'b', body = buildBody(bind, nb);
     const t0 = performance.now();
@@ -704,7 +737,7 @@ const Skier = (() => {
     const bw0 = boneWeights(m, bind, body, nb);
     const sp = splitMaterials(m, bw0), bw = sp.bw; m.verts = sp.verts; m.nv = sp.nv;
     // skis and poles, rigid on their bones (built in bone-local space, then moved to the bind pose)
-    const parts = [[skiMesh(0), B.footL], [skiMesh(0), B.footR], [poleMesh(), B.poleL], [poleMesh(), B.poleR]];
+    const parts = equipment === 'snowboard' ? [[snowboardMesh(), B.poleL]] : [[skiMesh(0), B.footL], [skiMesh(0), B.footR], [poleMesh(), B.poleL], [poleMesh(), B.poleR]];
     let nv = m.nv, ni = m.ni; for (const [pm] of parts) { nv += pm.nv; ni += pm.ni; }
     const V = new Float32Array(nv * 10), W = new Float32Array(nv * 4), I = new Uint32Array(ni); V.set(m.verts); W.set(bw); I.set(m.idx);
     let vo = m.nv, io = m.ni;
@@ -714,13 +747,13 @@ const Skier = (() => {
         const p = m4.tp(Fm, [pm.verts[i * 10], pm.verts[i * 10 + 1], pm.verts[i * 10 + 2]]), n = m4.td(Fm, [pm.verts[i * 10 + 3], pm.verts[i * 10 + 4], pm.verts[i * 10 + 5]]), o = (vo + i) * 10;
         V[o] = p[0]; V[o + 1] = p[1]; V[o + 2] = p[2]; V[o + 3] = n[0]; V[o + 4] = n[1]; V[o + 5] = n[2]; V[o + 6] = pm.verts[i * 10 + 6]; V[o + 7] = 1;
         // local coordinates of hard parts ride along for the shader's graphics
-        V[o + 8] = bone >= B.poleL ? pm.verts[i * 10 + 1] : pm.verts[i * 10 + 2]; V[o + 9] = pm.verts[i * 10 + 4];
+        V[o + 8] = bone >= B.poleL && equipment !== 'snowboard' ? pm.verts[i * 10 + 1] : pm.verts[i * 10 + 2]; V[o + 9] = pm.verts[i * 10 + 4];
         W[(vo + i) * 4] = bone; W[(vo + i) * 4 + 1] = bone; W[(vo + i) * 4 + 2] = 1;
       }
       for (let i = 0; i < pm.ni; i++) I[io + i] = pm.idx[i] + vo;
       vo += pm.nv; io += pm.ni;
     }
-    K.mesh = K.meshes[v] = { V, W, I, nv, ni, v };
+    K.mesh = K.meshes[key] = { V, W, I, nv, ni, v, equipment };
     return K.mesh;
   };
 
@@ -871,7 +904,7 @@ fn hdBuff(p: vec3f) -> f32 { return skMin(skMin(skEll(p, ${E3(H.face, 0)}, ${E3(
     const Y = v3.norm(root.nrm), Z0 = v3.mul(root.fwd, -1), X = v3.norm(v3.cross(Y, Z0)), Z = v3.cross(X, Y);
     const toW = q => [root.pos[0] + X[0] * q[0] + Y[0] * q[1] + Z[0] * q[2], root.pos[1] + X[1] * q[0] + Y[1] * q[1] + Z[1] * q[2], root.pos[2] + X[2] * q[0] + Y[2] * q[1] + Z[2] * q[2]];
     // (standing at ease changes what the pose asks for: before anything is made of it)
-    sec.idle = ease(root, pose, cut, cut ? 0 : dt, X, Z, toW);
+    sec.idle = cur.equipment === 'snowboard' ? null : ease(root, pose, cut, cut ? 0 : dt, X, Z, toW);
     if (cut) { st.lean = [cur.lean, 0]; st.cf = [cur.crouch, 0]; st.crouch = [cur.crouch, 0]; st.dp = null; st.pp[0] = st.pp[1] = null; st.f0 = f; dt = 0; }
     // the hem of the jacket is cloth on a moving body: it lags behind what the body does (speeding up, turning) and the wind of the run lifts it off the
     // seat and shakes it, on the game's time (slow motion slows it too). p: how far the back hem stands out (radians about the small of the back, never
@@ -927,7 +960,7 @@ fn hdBuff(p: vec3f) -> f32 { return skMin(skMin(skEll(p, ${E3(H.face, 0)}, ${E3(
     const W = K.world; W.root = R; W.J = s.J; W.X = X; W.Y = Y; W.Z = Z; W.hb = s.hb;
     // the skis (tail to tip) and the poles (fist to tip) in render space, each [a, b]: the motion blur leaves them sharp, as it does the body (09_post.js)
     { const sg = (b, a, c) => { const F = m4.mul(R, s.F[b]); return [m4.tp(F, a), m4.tp(F, c)]; };
-      W.seg = [sg(B.footL, [0, 0.02, 0.78], [0, 0.09, -0.94]), sg(B.footR, [0, 0.02, 0.78], [0, 0.09, -0.94]), sg(B.poleL, [0, 0.06, 0], [0, -1.12, 0]), sg(B.poleR, [0, 0.06, 0], [0, -1.12, 0])]; }
+      W.seg = cur.equipment === 'snowboard' ? [sg(B.poleL, [-0.10, 0.02, 0.78], [-0.10, 0.08, -0.78]), sg(B.poleL, [0.10, 0.02, 0.78], [0.10, 0.08, -0.78])] : [sg(B.footL, [0, 0.02, 0.78], [0, 0.09, -0.94]), sg(B.footR, [0, 0.02, 0.78], [0, 0.09, -0.94]), sg(B.poleL, [0, 0.06, 0], [0, -1.12, 0]), sg(B.poleR, [0, 0.06, 0], [0, -1.12, 0])]; }
     W.tipL = toW(s.J.tipL); W.tipR = toW(s.J.tipR); W.planted = Math.min(s.J.plantedL, s.J.plantedR);   // pole tips in the world, and whether the snow has them (1) or not (0)
     return s;
   };
@@ -941,7 +974,7 @@ fn hdBuff(p: vec3f) -> f32 { return skMin(skMin(skEll(p, ${E3(H.face, 0)}, ${E3(
     if (!m.gpu) m.gpu = { vb: gfx.buffer(m.V, 'vertex'), vb2: gfx.buffer(m.W, 'vertex'), ib: gfx.buffer(m.I, 'index') };
     K.mesh = m; vb = m.gpu.vb; vb2 = m.gpu.vb2; ib = m.gpu.ib; count = m.ni; nite[1] = m.v === 'b' ? 1 : 0;
   }
-  const wantBody = () => { if (K.mesh.v !== bodyV()) useBody(K.build(bodyV())); }; K.want = wantBody;
+  const wantBody = () => { if (K.mesh.v !== bodyV() || K.mesh.equipment !== (Game.equipment || 'ski')) useBody(K.build(bodyV())); }; K.want = wantBody;
   K.draw = function (shadowTex, skyTex) {
     wantBody();
     const want = CLOTH[Variants.val.cloth] || CLOTH.b, now = performance.now() / 1000, de = now - clo.t, e = clo.t < 0 || de > 0.1 ? 1 : 1 - Math.exp(-Math.max(de, 0) * 6); clo.t = now;

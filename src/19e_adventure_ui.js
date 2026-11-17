@@ -21,11 +21,12 @@ const AdventureUI = (() => {
   };
   V.render = function () {
     if (!root) return; root.textContent = '';
+    if (typeof EquipmentUI !== 'undefined') EquipmentUI.append(root);
     const r = Adventure.run, result = r && r.result;
     $('app').classList.toggle('adventure', !!r); $('m-go').hidden = !!result;
     if (result) {
       const card = node('div', '', 'adv-result'), title = node('h2', T(result.ok ? '关卡完成' : '再试一次'));
-      card.append(title, node('p', T(r.level.name) + ' · ' + T(result.reason)));
+      card.append(title, node('p', T(r.level.name) + ' · ' + T(Equipment.label(r.equipment)) + ' · ' + T(result.reason)));
       card.append(node('p', (result.ok ? '★'.repeat(result.stars) + '☆'.repeat(3 - result.stars) + ' · ' : '') + T('用时') + ' ' + time(result.time) + ' · ' + T('碰撞') + ' ' + result.crashes));
       const row = node('div', '', 'adv-actions');
       row.append(button('重试', () => route(r.level.id), !result.ok));
@@ -34,15 +35,15 @@ const AdventureUI = (() => {
       if (result.ok && !next) card.append(node('p', T('体验内容已全部完成')));
       row.append(button('自由滑', () => UI.freeSki())); card.append(row); root.append(card);
     }
-    root.append(node('p', T('通关即可前进，满星不是解锁条件。'), 'adv-note'));
+    root.append(node('p', T('通关即可前进，满星不是解锁条件。') + ' ' + T('解锁共用，星级和最佳用时按器材分别记录。'), 'adv-note'));
     for (const [ci, chapter] of AdventureLevels.chapters.entries()) {
       const section = node('div', '', 'adv-chapter'); section.append(node('h3', '0' + (ci + 1) + ' / ' + T(chapter.name)), node('p', T(chapter.subtitle), 'adv-note'));
       const levels = AdventureLevels.levels.filter(l => l.chapter === chapter.id);
       for (const [li, l] of levels.entries()) {
-        const access = Adventure.access(l.id), done = Adventure.progress[l.id];
+        const access = Adventure.access(l.id), done = Adventure.record(l.id);
         const b = node('button', '', 'adv-level'); b.type = 'button'; b.dataset.level = l.id;
         const title = node('b', (ci + 1) + '-' + (li + 1) + '  ' + T(l.name));
-        b.append(title, node('span', T(l.description)), node('small', T(l.tip)));
+        b.append(title, node('span', T(l.description)), node('small', T(Equipment.current() === 'snowboard' ? '左脚在前；左右换刃，前推并转向横滑刹车。' : l.tip)));
         b.append(node('small', T('可选挑战') + ' · ' + T('目标用时') + ' ' + time(l.par) + ' · ' + T('碰撞不超过') + ' ' + l.maxCrashes));
         const status = access === 'progress' ? '先完成上一关' : access === 'demo' ? (Adventure.isBeta() ? '体验解锁（不扣费）' : '开发中') : '开始挑战';
         b.append(node('em', done ? '★'.repeat(done.stars) + '☆'.repeat(3 - done.stars) + ' · ' + T('最佳') + ' ' + time(done.best) : T(status)));
@@ -56,7 +57,7 @@ const AdventureUI = (() => {
         const box = node('div', '', 'adv-offer'); box.id = 'adv-offer';
         box.append(node('h3', T('内测演示，不会扣费')), node('p', T('解锁第二章样例关，体验后续冒险。')), node('p', T('仅解锁本次已完成的1个样例关；其余7关仍在开发。'), 'adv-note'));
         if (Adventure.demoUnlocked) box.append(node('p', T('已体验解锁 · 不扣费')));
-        else if (!Adventure.progress['pine-4']) box.append(node('p', T('先完成第一章，再体验解锁。'), 'adv-note'));
+        else if (!Adventure.cleared('pine-4')) box.append(node('p', T('先完成第一章，再体验解锁。'), 'adv-note'));
         else if (offer) {
           const row = node('div', '', 'adv-actions');
           row.append(button('体验解锁（不扣费）', () => { Adventure.tryUnlock(); offer = false; V.render(); }, true), button('暂不解锁', () => { offer = false; V.render(); })); box.append(row);

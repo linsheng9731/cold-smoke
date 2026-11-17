@@ -74,6 +74,15 @@ const UI = (() => {
     Input.onFlip = () => U.layout();
     initSwitch();
     initSplits();
+    Equipment.on(() => {
+      mtnSave(true); dbSave(true); MB = DB = null; mtnSig = ''; mtnSaved = dbSaved = 0;
+      SP.best = {}; SP.d3 = null; newRun(); Input.reset(); Game.reset();
+      if (typeof Tracks !== 'undefined') Tracks.reset();
+      if (typeof AdventureUI !== 'undefined') AdventureUI.render();
+      el.xr.hidden = !XR.ok || Equipment.current() === 'snowboard'; howText();
+      if (App.redraw) App.redraw();
+    });
+    if (typeof EquipmentUI !== 'undefined') EquipmentUI.init();
     initVariants();
     if (typeof AdventureUI !== 'undefined') AdventureUI.init();
     if (typeof Rank !== 'undefined') try { Rank.init(); } catch (e) { console.warn(e); }          // (the boards, inside 小红书 only: 19b_rank.js)
@@ -96,6 +105,7 @@ const UI = (() => {
   const faOn = () => typeof Variants !== 'undefined' && Variants.val.fa === 'b';
   function howText() {
     const hh = U.hh, framed = U.framed, fa = faOn(); el.app.classList.toggle('fa', fa);
+    if (Equipment.current() === 'snowboard') { el.how.textContent = T(hh ? '单板：左右拖动换刃，前推并转向刹车；右下角跳跃 / 收身。' : '单板：← → 换刃；↑＋转向刹车；空格跳跃；Shift 收身。'); return; }
     el.how.textContent = T(!hh ? (fa ? '← → 转弯 · ↑ ↓ 压板头 / 板尾 · 空格 跳 · Shift 加速' : '← → 或 A D 转弯 · 空格 跳 · ↓ 或 S 加速')
       : fa ? '按住屏幕，左右拖转弯，上下拖压板头 / 板尾 · 右下角 跳 / 加速' : framed ? '按住屏幕左右拖动转弯 · 右下角 跳 / 加速' : '倾斜手机或按住屏幕左右拖动转弯 · 右下角 跳 / 加速');
   }
@@ -103,7 +113,7 @@ const UI = (() => {
   U.stage = function (f, name) { if (!el) return; el.fill.style.transform = 'scaleX(' + f.toFixed(3) + ')'; if (name) el.stage.textContent = T(name); };
   // first frame is on the canvas: let it come up out of the dark, then set the title over it
   U.ready = function () {
-    if (el && el.xr) el.xr.hidden = !XR.ok;
+    if (el && el.xr) el.xr.hidden = !XR.ok || Equipment.current() === 'snowboard';
     if (!el) return; U.state = 'title';
     el.load.classList.remove('on'); el.veil.classList.add('lift'); el.shade.classList.add('on'); el.title.classList.add('on'); el.snd.classList.add('on');
     if (!U.hh && fsAvail()) el.fs.classList.add('on');
@@ -712,11 +722,11 @@ const UI = (() => {
   let MB = null, mtnSaved = 0, mtnSig = '';
   function mtnAll() {
     if (MB) return MB; MB = {};
-    try { const o = JSON.parse(localStorage.getItem(MKEY) || 'null'); if (o && typeof o === 'object' && !Array.isArray(o)) MB = o; } catch (e) { }
+    try { const o = JSON.parse(localStorage.getItem(Equipment.key(MKEY)) || 'null'); if (o && typeof o === 'object' && !Array.isArray(o)) MB = o; } catch (e) { }
     return MB;
   }
   function mtnRec(all, id) { const b = all[id]; return b && typeof b === 'object' ? b : null; }
-  function mtnSave(force) { if (!MB) return; const t = performance.now(); if (!force && t - mtnSaved < 10000) return; mtnSaved = t; try { localStorage.setItem(MKEY, JSON.stringify(MB)); } catch (e) { } }
+  function mtnSave(force) { if (!MB) return; const t = performance.now(); if (!force && t - mtnSaved < 10000) return; mtnSaved = t; try { localStorage.setItem(Equipment.key(MKEY), JSON.stringify(MB)); } catch (e) { } }
   function mtnListed() { const all = mtnAll(), reg = (typeof Course !== 'undefined' && Course.mountains) || []; return reg.filter(m => m && m.id && (m.released || mtnRec(all, m.id))); }
   function mtnFigs(b) {
     if (!b) return ''; const dist = +b.dist || 0, v = +b.v || 0, air = +b.air || 0, f = [];
@@ -764,8 +774,8 @@ const UI = (() => {
   };
   const DKEY = 'coldsmoke.daily';
   let DB = null, dbSaved = 0;
-  function dbLoad() { const d = App.today(); if (DB && DB.d === d) return DB; DB = { d, seed: App.dailySeed(d), dist: 0, v: 0, air: 0, v3: 0, t3: 0 }; try { const o = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (o && o.d === d && o.seed === DB.seed) Object.assign(DB, { dist: +o.dist || 0, v: +o.v || 0, air: +o.air || 0, v3: +o.v3 || 0, t3: +o.t3 || 0 }); } catch (e) { } if (DB.v3 > 0) SP.d3 = { d, v: DB.v3 }; return DB; }
-  function dbSave(force) { if (!DB) return; const t = performance.now(); if (!force && t - dbSaved < 10000) return; dbSaved = t; try { localStorage.setItem(DKEY, JSON.stringify(DB)); } catch (e) { } }
+  function dbLoad() { const d = App.today(); if (DB && DB.d === d) return DB; DB = { d, seed: App.dailySeed(d), dist: 0, v: 0, air: 0, v3: 0, t3: 0 }; try { const o = JSON.parse(localStorage.getItem(Equipment.key(DKEY)) || 'null'); if (o && o.d === d && o.seed === DB.seed) Object.assign(DB, { dist: +o.dist || 0, v: +o.v || 0, air: +o.air || 0, v3: +o.v3 || 0, t3: +o.t3 || 0 }); } catch (e) { } if (DB.v3 > 0) SP.d3 = { d, v: DB.v3 }; return DB; }
+  function dbSave(force) { if (!DB) return; const t = performance.now(); if (!force && t - dbSaved < 10000) return; dbSaved = t; try { localStorage.setItem(Equipment.key(DKEY), JSON.stringify(DB)); } catch (e) { } }
   // (from the run so far: while it is on today's mountain. A run is one go from 出发; a change of mountain starts measuring afresh)
   function dbTick() { if (!isDaily() || Game.mode !== 'run') return; const b = dbLoad(), R = SP.run; let up = false; if (R.dist > b.dist) { b.dist = R.dist; up = true; } if (R.v > b.v) { b.v = R.v; up = true; } if (R.air > b.air) { b.air = R.air; up = true; } if (up) dbSave(false); }
   function paintDaily() {

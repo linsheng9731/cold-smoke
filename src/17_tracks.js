@@ -75,6 +75,7 @@ const Tracks = (() => {
 
   // called every simulation step with the skier's frame, pose and physical state
   T.step = function (root, pose, S) {
+    const board = pose.equipment === 'snowboard';
     const px = root.pos[0], pz = root.pos[2], mv = Math.hypot(px - cx, pz - cz);
     if (mv > 6) T.reset();       // the skier was put somewhere else
     cx = px; cz = pz;
@@ -85,7 +86,7 @@ const Tracks = (() => {
     if (!T.enabled || !S.contact || S.air) { prev[0] = prev[1] = null; return; }
     // the skis' frame, as the skier builds it (08_skier.js): X to the right, Y the snow normal, A along the skis
     const Y = v3.norm(root.nrm), X = v3.norm(v3.cross(root.fwd, Y)), A = v3.cross(Y, X), al = Math.hypot(A[0], A[2]) || 1, rx = -A[2] / al, rz = A[0] / al;
-    const e = pose.edge || 0, se = Math.sin(e), pw = S.powder || 0, hw = T.ski.hw, kv = smooth(0.8, 3, S.speed || 0);
+    const e = pose.edge || 0, se = Math.sin(e), pw = S.powder || 0, hw = board ? 0.145 : T.ski.hw, kv = smooth(0.8, 3, S.speed || 0);
     // a ski beds itself a centimetre or two into firm, wind-packed snow (the soft snow lying on it gives, the pack hardly) and a hand's width into
     // powder; deeper under load, deeper still when all of it stands on one edge, less when it is scraping sideways. (The depth changes
     // along the track, not in time: a skier standing still does not sink.)
@@ -108,9 +109,9 @@ const Tracks = (() => {
     // the point of each base under the boot (model space: x right, y up from the snow, z back), from the skier's own joints when there are
     // any; and whether that ski is in the snow at all
     for (let k = 0; k < 2; k++) {
-      const sg = k ? 1 : -1, f = J && (k ? J.footR : J.footL), q = ft[k];
+      const sg = k ? 1 : -1, f = board ? [0, 0.145 * Math.abs(se) + 0.025, 0] : J && (k ? J.footR : J.footL), q = ft[k];
       q[0] = f ? f[0] : sg * pose.stance * 0.5; q[1] = f ? f[1] : 0.05 * Math.abs(se) + ((k ? pose.liftR : pose.liftL) || 0); q[2] = f ? f[2] : -sg * pose.lead;
-      q[3] = q[1] - hw * Math.abs(se) > T.D - 0.003 ? 0 : 1;
+      q[3] = board ? +(k === 0) : q[1] - hw * Math.abs(se) > T.D - 0.003 ? 0 : 1;
     }
     let skd = 0;
     for (let k = 0; k < 2; k++) {
@@ -139,7 +140,7 @@ const Tracks = (() => {
       // (where the other ski's boot is, in this one's frame: to its right, toward its tip. Far away if that one is in the air)
       cpu[o + 8] = se; cpu[o + 9] = ot[3] ? ot[0] - fx : 99; cpu[o + 10] = T.D; cpu[o + 11] = lift;
       // (... how high that one rides; and the depth a ski scrapes to when it goes sideways, which hangs on the snow alone)
-      cpu[o + 12] = th; cpu[o + 13] = ot[3] ? ot[1] : 99; cpu[o + 14] = (firm + soft) * 0.6; cpu[o + 15] = bermK;
+      cpu[o + 12] = th; cpu[o + 13] = ot[3] ? ot[1] : 99; cpu[o + 14] = (firm + soft) * 0.6; cpu[o + 15] = board ? -1 : bermK;
       cpu[o + 16] = T.deep; cpu[o + 17] = ldr; cpu[o + 18] = pw; cpu[o + 19] = mar;
     }
     // riding in the snow: the furrow the two skis and the legs plough behind the boots (d.w = 2). One stamp a step from the point between
@@ -160,7 +161,7 @@ const Tracks = (() => {
     } else fPrev = null;
     // a pole planted leaves a hole: the tip's, with the basket's ring pressed round it (d.w = 1 marks such a stamp; one per plant, so it costs nothing)
     const Wk = typeof Skier !== 'undefined' && Skier.world;
-    for (let k = 0; k < 2; k++) { const pl = Wk && Wk.J ? (k ? Wk.J.plantedR : Wk.J.plantedL) || 0 : 0, tp = Wk && (k ? Wk.tipR : Wk.tipL);
+    for (let k = 0; k < 2; k++) { const pl = !board && Wk && Wk.J ? (k ? Wk.J.plantedR : Wk.J.plantedL) || 0 : 0, tp = Wk && (k ? Wk.tipR : Wk.tipL);
       if (pl >= 0.99 && !(plPrev[k] >= 0.99) && tp && Math.hypot(tp[0] - px, tp[2] - pz) < REACH) {
         if (count === MAXI) { cpu.copyWithin(0, FL * MAXI / 2); wpos.copyWithin(0, MAXI); count = MAXI / 2; base += MAXI / 2; }
         const o = count * FL; wpos[count * 2] = tp[0]; wpos[count * 2 + 1] = tp[2]; count++; cpu.fill(0, o, o + FL);
@@ -311,15 +312,16 @@ const Tracks = (() => {
     U.tb[2] = lerp(lerp(T.ski.tip + 0.03, 0.31, smooth(0.055, 0.09, T.D) * (1 - skidK)), -0.12, T.deep);      // how far ahead of the boot the snow is open over a ski (as 'tip' in the stamp)
     U.tb[3] = T.deep;
     // skis and legs as they are drawn this frame (the skier's own joints and frame; without them, no contact shadows)
+    const board = typeof Game !== 'undefined' && Game.equipment === 'snowboard';
     const Sk = typeof Skier !== 'undefined' ? Skier : null, W = Sk && Sk.world, R = W && W.root, J = W && W.J, P = (Sk && Sk.pose) || {};
     for (let k = 0; k < 2; k++) {
-      const C = k ? U.sb0 : U.sa0, A = k ? U.sb1 : U.sa1, B = k ? U.sb2 : U.sa2, K0 = k ? U.lb0 : U.la0, K1 = k ? U.lb1 : U.la1, f = J && (k ? J.footR : J.footL);
+      const C = k ? U.sb0 : U.sa0, A = k ? U.sb1 : U.sa1, B = k ? U.sb2 : U.sa2, K0 = k ? U.lb0 : U.la0, K1 = k ? U.lb1 : U.la1, f = board && J ? (k ? null : J.board) : J && (k ? J.footR : J.footL);
       B[3] = 0; K0[3] = 0;
       if (!R || !f) continue;
       // (the ski's frame in model space: rolled onto its edge, pitched if a foot is lifted; -z is where it points)
       const e = P.edge || 0, pt = -(((k ? P.pitchR : P.pitchL) || 0) + ((k ? P.tipR : P.tipL) || 0)), cr = Math.cos(e), sr = Math.sin(e), cp = Math.cos(pt), sp = Math.sin(pt);
       const c = m4.tp(R, f), a = m4.td(R, [-sp * sr, -sp * cr, -cp]), b = m4.td(R, [cr, -sr, 0]);
-      C[0] = c[0]; C[1] = c[1]; C[2] = c[2]; C[3] = T.ski.hw; A[0] = a[0]; A[1] = a[1]; A[2] = a[2]; A[3] = T.ski.tail; B[0] = b[0]; B[1] = b[1]; B[2] = b[2]; B[3] = T.ski.tip + 0.03;
+      C[0] = c[0]; C[1] = c[1]; C[2] = c[2]; C[3] = board ? 0.145 : T.ski.hw; A[0] = a[0]; A[1] = a[1]; A[2] = a[2]; A[3] = T.ski.tail; B[0] = b[0]; B[1] = b[1]; B[2] = b[2]; B[3] = T.ski.tip + 0.03;
       const kn = k ? J.kneeR : J.kneeL, hp = k ? J.hipR : J.hipL;
       if (kn && hp) { const q = m4.tp(R, kn), h = m4.tp(R, hp); K0[0] = q[0]; K0[1] = q[1]; K0[2] = q[2]; K0[3] = 0.058; K1[0] = h[0]; K1[1] = h[1]; K1[2] = h[2]; K1[3] = 0.075; }
     }
@@ -359,7 +361,7 @@ fn trackQuad(a0: vec4f, a1: vec4f, vid: u32, mU: f32, mV: f32, sunReach: f32) ->
 const TRACK_STAMP_VS = `
 fn vert(a: VIn) -> VOut {
   var v: VOut;
-  var t: TrkV = trackQuad(a.a0, a.a1, a.vid, mix(a.a4.w, 0.03 + abs(a.a3.x), M.p.z), mix(0.14, 0.03, M.p.z) + 0.1 * abs(a.a3.x), 0.0);
+  var t: TrkV = trackQuad(a.a0, a.a1, a.vid, mix(a.a4.w, 0.03 + abs(a.a3.x), M.p.z) + select(0.0, 0.10, a.a3.w < -0.5), mix(0.14, 0.03, M.p.z) + 0.1 * abs(a.a3.x), 0.0);
   // (a pole's hole: a quad of a hand's breadth round the tip, no more: margins that undo the ski's own length)
   if (a.a3.w > 0.5 && a.a3.w < 1.5) { t = trackQuad(a.a0, a.a1, a.vid, 0.09 - SKI_HW, -0.68, 0.0); }
   // (the furrow: as wide as it and its lips, from just ahead of the boots back over the stretch it came)
@@ -506,7 +508,7 @@ fn frag(v: VOut) -> FOut {
   // base rides over snow the edge has yet to reach or has already scraped. So its strip is narrow (as narrow as the map can hold) and
   // flat. (Cut with its whole tilted width, the ski that comes second in a skid laid its base on the floor the first had scraped, and
   // raised it again: the map can only be overwritten, not lowered)
-  let hw: f32 = SKI_HW * cphi; let sl: f32 = select(-1.0, 1.0, sphi >= 0.0);
+  let hw: f32 = select(SKI_HW, 0.145, v.d.w < -0.5) * cphi; let sl: f32 = select(-1.0, 1.0, sphi >= 0.0);
   let tTop: f32 = max(clamp(cphi * (lift - D) / max(abs(sphi), 1e-3), -hw, hw), mix(-hw, hw - 2.5 * M.p.y, sm));
   let c: vec2f = vec2f(sl * 0.5 * (tTop + hw), 0.5 * (tip - SKI_TAIL)); let h: vec2f = vec2f(0.5 * (hw - tTop), 0.5 * (tip + SKI_TAIL));
   // (the line of a cut wanders a little, more in powder and where it was scraped. No more than that: bites out of a wall, seen from behind
@@ -547,7 +549,7 @@ fn frag(v: VOut) -> FOut {
   let hi: f32 = max(0.0, -sg * sphi); let sk: f32 = min(1.0, max(0.0, sg * ldr) / 0.45); let tr: f32 = min(1.0, max(0.0, -sg * ldr) / 0.10);
   // (powder is pressed down more than it is squeezed out: a deep trench with a low wide swell beside it, not a roll)
   // (bk, Variants 'snowr' b: the berm the edges squeeze up along the track, by the snow (kind field d.w, 0..0.4 on a ski's stamp))
-  let bk: f32 = select(0.0, v.d.w * 2.5, v.d.w < 0.45);
+  let bk: f32 = select(0.0, v.d.w * 2.5, v.d.w >= 0.0 && v.d.w < 0.45);
   let Hs: f32 = (D * mix(0.22, 0.10, pw) + D * 0.55 * hi * (1.0 - sk) + sk * (0.045 + 0.035 * pw) + bk * (0.45 * D + 0.004)) * (1.0 - tr);
   let Ws: f32 = max((mix(0.022 + 0.07 * pw, 0.085, hi) + 0.17 * sk) * (1.0 + 0.3 * bk), 2.0 * M.p.y);
   let so: f32 = max(sdu - softD, 0.0);
