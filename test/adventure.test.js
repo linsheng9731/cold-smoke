@@ -113,22 +113,140 @@ test('all new UI literal copy has English coverage; camera controls are hidden o
   assert.match(read('template.html'), /#app:not\(\.dev\) \[data-sec="view"\]/); assert.match(read('src/19_ui.js'), /const views = \(\) => U.dev &&/);
   assert.ok(read('src/99_main.js').indexOf('Adventure.update(real, Game.events)') < read('src/99_main.js').indexOf('Game.events.length = 0'));
 });
+test('new concept-screen template labels have English translations', () => {
+  const { I18N } = harness();
+  for (const label of [
+    '冒险模式', '器材', '记录', '冒险星级', '寒烟山', '返回', '暂停菜单',
+    '确认返回主菜单？', '确认', '双板最佳用时', '单板最佳用时',
+    '界面菜单使用随附美术，3D雪山仍由程序生成。'
+  ]) assert.notEqual(I18N.t(label), label, label);
+});
 test('adventure initializes and rerenders on a legacy WebView without replaceChildren', () => {
   class Element {
-    constructor() { this.children = []; this.dataset = {}; this.classList = { toggle() {} }; }
+    constructor(tag = 'div') { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.classList = {
+      toggle() {}, add(name) { this.owner.className += ' ' + name; }
+    }; this.classList.owner = this; this.style = { setProperty() {} }; this.handlers = {}; this.isConnected = true; }
     set textContent(value) { this.text = value; this.children = []; }
-    append(...nodes) { this.children.push(...nodes); }
-    addEventListener() {}
+    append(...nodes) { this.children.push(...nodes); nodes.forEach(n => { n.parentNode = this; }); }
+    appendChild(n) { this.append(n); return n; }
+    setAttribute() {}
+    addEventListener(k, fn) { this.handlers[k] = fn; }
+    scrollIntoView() {}
+    querySelector() { return null; }
   }
   const { c } = harness(), elements = {};
   c.document = { getElementById: id => elements[id] || (elements[id] = new Element()), createElement: () => new Element() };
+  vm.runInContext(read('src/03c_art.js'), c);
   c.App.onTick = [];
   vm.runInContext(read('src/19e_adventure_ui.js') + '\nglobalThis.adventureUI = AdventureUI;', c);
   c.adventureUI.init();
   const root = elements['adv-content'], count = root.children.length;
-  assert.ok(count > 0); assert.equal(root.children.filter(n => n.className === 'adv-chapter').length, 3);
-  assert.equal(root.children.flatMap(n => n.children).filter(n => n.dataset.level).length, 5);
+  assert.ok(count > 0); assert.equal(root.children.filter(n => n.className === 'adv-tabs').length, 1);
+  assert.equal(root.children.filter(n => n.className === 'adv-hero').length, 1);
+  assert.equal(root.children.filter(n => n.className === 'adv-level-row').length, 1);
+  assert.equal(root.children.find(n => n.className === 'adv-level-row').children.length, 4);
   c.adventureUI.render(); assert.equal(root.children.length, count);
+});
+test('adventure cards select without starting, open levels start explicitly, and placeholders stay unavailable', () => {
+  class Element {
+    constructor(tag = 'div') {
+      this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.handlers = {}; this.attrs = {}; this.style = {};
+      this.className = ''; this.classList = { add: name => { if (!this.className.split(' ').includes(name)) this.className += ' ' + name; }, toggle() {} };
+      this.style.setProperty = () => {}; this.isConnected = true;
+    }
+    set textContent(value) { this.text = value; this.children = []; }
+    append(...nodes) { this.children.push(...nodes); nodes.forEach(n => { n.parentNode = this; }); }
+    appendChild(n) { this.append(n); return n; }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    addEventListener(k, fn) { (this.handlers[k] ||= []).push(fn); }
+    scrollIntoView() {}
+    querySelectorAll(selector) {
+      const all = this.children.flatMap(n => [n, ...n.querySelectorAll(selector)]);
+      return all.filter(n => selector === '[data-level]' ? !!n.dataset.level :
+        selector === '.adv-card.selected' ? n.className.split(' ').includes('adv-card') && n.className.split(' ').includes('selected') :
+          selector === '.adv-card-stars' ? n.className === 'adv-card-stars' :
+            selector === '.adv-start' ? n.className.split(' ').includes('adv-start') : false);
+    }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    click() { if (!this.disabled) for (const fn of this.handlers.click || []) fn({ target: this, stopPropagation() {} }); }
+  }
+  const h = harness(), starts = [];
+  h.complete('pine-1'); h.Game.mode = 'title'; h.c.UI.state = 'title'; h.c.App.onTick = [];
+  h.c.UI.beginAdventure = id => { starts.push(id); return true; }; h.c.requestAnimationFrame = fn => fn();
+  const elements = {};
+  h.c.document = { getElementById: id => elements[id] || (elements[id] = new Element()), createElement: tag => new Element(tag) };
+  vm.runInContext(read('src/03c_art.js') + '\n' + read('src/19e_adventure_ui.js') + '\nglobalThis.adventureUI = AdventureUI;', h.c);
+  h.c.adventureUI.init();
+  let root = elements['adv-content'], row = root.children.find(n => n.className === 'adv-level-row');
+  row.children.find(n => n.dataset.level === 'pine-2').click();
+  assert.deepEqual(starts, []);
+  root.querySelector('.adv-start').click();
+  assert.deepEqual(starts, ['pine-2']);
+  const tabs = root.children.find(n => n.className === 'adv-tabs');
+  tabs.children.find(n => n.dataset.chapter === 'mist').click();
+  root = elements['adv-content']; row = root.children.find(n => n.className === 'adv-level-row');
+  const placeholder = row.children.find(n => n.dataset.level === 'mist-2');
+  assert.equal(placeholder.disabled, true);
+  assert.equal(placeholder.querySelector('.adv-card-stars'), null);
+  placeholder.click(); assert.deepEqual(starts, ['pine-2']);
+  root.children.find(n => n.className === 'adv-tabs').children.find(n => n.dataset.chapter === 'ridge').click();
+  root = elements['adv-content']; row = root.children.find(n => n.className === 'adv-level-row');
+  assert.ok(row.children.every(card => card.disabled));
+  assert.match(root.children.find(n => n.className === 'adv-hero').children[0].style.backgroundImage, /bg_zone_03_sky_peak/);
+  assert.equal(root.querySelector('.adv-start'), null);
+});
+test('pause restart re-enters the same adventure level without changing its equipment', () => {
+  const source = read('src/19_ui.js');
+  const start = source.indexOf('  U.toTop = function (restartAdventure = false) {'), end = source.indexOf('\n  U.beginAdventure', start);
+  const calls = [], timers = [], classes = { add() {}, remove() {} };
+  const equipment = { selected: 'snowboard' };
+  const adventure = {
+    run: { level: { id: 'pine-2' } },
+    leave() { calls.push('leave'); this.run = null; },
+    start(id) { calls.push(['start', id, equipment.selected]); this.run = { level: { id } }; return true; }
+  };
+  const UI = { state: 'run', gone: false, paused: true, open: true, go() { calls.push('go'); } };
+  const el = {
+    menu: { classList: classes, setAttribute() {} }, app: { classList: classes }, mn: { setAttribute() {} },
+    cut: { classList: classes, style: {} }, hud: { classList: classes }, shade: { classList: classes },
+    hint: { classList: classes }, seg: { classList: classes }, title: { classList: classes }, day: { classList: classes }
+  };
+  const context = vm.createContext({
+    U: UI, el, Adventure: adventure, Equipment: equipment, App: { swapping: false, resumeK: 0, paused: true },
+    Game: { reset() {}, mode: 'run' }, Input: { drag: null, keys: {} }, Sound: { on: true, level: 1 },
+    settle() {}, paint() {}, hush() {}, setTimeout: fn => timers.push(fn)
+  });
+  vm.runInContext(source.slice(start, end), context);
+  assert.equal(UI.toTop(true), true);
+  assert.equal(UI.state, 'leaving'); assert.equal(timers.length, 1);
+  timers[0]();
+  assert.deepEqual(calls, ['leave', ['start', 'pine-2', 'snowboard'], 'go']);
+});
+test('pause resume rejects completed and failed runs before releasing the hold', () => {
+  const source = read('src/19_ui.js'), start = source.indexOf('  U.resume = function () {'), end = source.indexOf('\n  // back to the gate', start);
+  const calls = [], UI = { open: true, gone: false, menu: value => calls.push(value) };
+  const context = vm.createContext({ U: UI, el: {}, Adventure: { run: { status: 'completed' } } });
+  vm.runInContext(source.slice(start, end), context);
+  assert.equal(UI.resume(), false);
+  context.Adventure.run.status = 'failed'; assert.equal(UI.resume(), false);
+  context.Adventure.run.status = 'running'; assert.equal(UI.resume(), true);
+  assert.deepEqual(calls, [false]);
+});
+test('home star total is calculated from the currently selected equipment records', () => {
+  const source = read('src/19_ui.js'), start = source.indexOf('  function homeStats() {'), end = source.indexOf('\n  function renderPause()', start);
+  const elements = { 'home-gear-label': {}, 'home-star-total': {} }, calls = [];
+  const context = vm.createContext({
+    el: {}, $: id => elements[id], T: value => value,
+    Equipment: { selected: 'snowboard', label: () => 'Snowboard' },
+    AdventureLevels: { levels: ['pine-1', 'pine-2', 'pine-3', 'pine-4', 'mist-1'].map(id => ({ id })) },
+    Adventure: { record(id, equipment) {
+      calls.push([id, equipment]); return equipment === 'snowboard' ? { stars: { 'pine-1': 3, 'pine-2': 2, 'mist-1': 1 }[id] || 0 } : { stars: 3 };
+    } }
+  });
+  vm.runInContext(source.slice(start, end) + '\nhomeStats();', context);
+  assert.equal(elements['home-gear-label'].textContent, 'Snowboard');
+  assert.equal(elements['home-star-total'].textContent, '★ 6 / 15');
+  assert.ok(calls.every(([, equipment]) => equipment === 'snowboard'));
 });
 test('scripted camera views remain available while normal camera shortcuts are disabled', () => {
   const { c } = harness({ physics: true }), events = {};
@@ -267,24 +385,26 @@ test('equipment buttons keep their base and selected styles above the adventure 
   assert.match(html, /#menu \.equipment button\[aria-pressed="true"\]\s*\{[^}]*border-color: var\(--sun\); color: var\(--sun\)/);
 });
 
-test('equipment selector consumes pointer and keyboard activation without starting a run', () => {
+test('gear browsing only previews; confirmation alone changes equipment and stays locked during a run', () => {
   class Element {
     constructor(tag = 'div') { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.handlers = {}; this.attrs = {}; this.isConnected = true; }
     appendChild(n) { this.children.push(n); n.parentNode = this; return n; }
     setAttribute(k, v) { this.attrs[k] = v; }
     addEventListener(k, fn) { this.handlers[k] = fn; }
-    querySelectorAll(tag) { return this.children.filter(n => n.tagName.toLowerCase() === tag); }
+    querySelectorAll(tag) { return this.children.flatMap(n => [n, ...n.querySelectorAll(tag)]).filter(n => n.tagName.toLowerCase() === tag); }
     querySelector(tag) { return this.querySelectorAll(tag)[0]; }
     click() { if (!this.disabled) this.handlers.click({ stopPropagation() {} }); }
   }
   const h = harness(); h.c.UI.state = 'title';
   h.c.document = { createElement: tag => new Element(tag) };
   vm.runInContext(read('src/19f_equipment_ui.js') + '\nglobalThis.equipmentUI = EquipmentUI;', h.c);
-  const group = h.c.equipmentUI.append(new Element()), [ski, board] = group.querySelectorAll('button');
+  const group = h.c.equipmentUI.append(new Element()), [ski, board, confirm] = group.querySelectorAll('button');
   let stopped = 0, prevented = 0;
-  group.handlers.pointerdown({ stopPropagation() { stopped++; } }); board.click();
+  group.handlers.pointerdown({ stopPropagation() { stopped++; } }); board.click(); h.c.equipmentUI.refresh();
   group.handlers.keydown({ code: 'Space', repeat: false, target: ski, stopPropagation() { stopped++; }, preventDefault() { prevented++; } });
   assert.equal(h.Game.mode, 'title'); assert.equal(h.Equipment.selected, 'ski'); assert.equal(stopped, 2); assert.equal(prevented, 1);
+  board.click(); h.c.equipmentUI.refresh(); assert.equal(board.attrs['aria-pressed'], 'true');
+  assert.equal(h.Equipment.selected, 'ski'); confirm.click(); assert.equal(h.Equipment.selected, 'snowboard');
   h.Game.mode = 'run'; h.c.UI.state = 'run'; h.c.equipmentUI.refresh();
-  assert.equal(board.disabled, true); assert.equal(ski.disabled, true);
+  assert.equal(board.disabled, true); assert.equal(ski.disabled, true); assert.equal(confirm.disabled, true);
 });

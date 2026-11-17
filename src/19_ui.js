@@ -19,17 +19,25 @@ const UI = (() => {
       say: $('say'), sayK: $('say-k'), sayV: $('say-v'), cut: $('cut'), jump: $('jump'), tuck: $('tuck'),
       pause: $('pause'), pauseS: $('pause-s'), pauseT: $('pause-t'), steer: $('steer'), steerV: $('steer-v'),
       clk: $('clock'), clkT: $('clk-t'), clkS: $('clk-s'), clkG: $('clk-g') };
+    const homeArt = Art.url(Art.chapters.pine);
+    el.title.style.setProperty('--home-art', homeArt ? 'url("' + homeArt + '")' : 'none');
     // developer mode (?dev, or a path ending in /dev; never in the 小红书 build). The time, the weather, the encounters and the versions
     // are only there. Taken out of the tree, not merely hidden, so a normal player cannot reach them.
     U.dev = !(self.COLD_SMOKE && self.COLD_SMOKE.noDev) && (typeof DEV !== 'undefined' && DEV);
     el.app.classList.toggle('dev', !!U.dev);
     if (!U.dev) el.app.querySelectorAll('.dev-only').forEach(n => n.remove());
     el.moreView = el.more.querySelector('[data-sec="view"]'); el.moreDaily = el.more.querySelector('[data-daily]'); el.daily = $('sw-daily'); el.mtDaily = el.menu.querySelector('section[data-sec="mt"] [data-daily]');
-    const adventureButton = document.createElement('button'); adventureButton.type = 'button'; adventureButton.dataset.sec = 'adventure'; adventureButton.textContent = '冒险旅程'; el.more.prepend(adventureButton);
     el.go.lastChild.nodeValue = '自由滑';
     I18N.capture(el.app); I18N.on(relang);
     U.layout();
     el.go.addEventListener('click', e => { e.stopPropagation(); U.go(); });
+    el.title.addEventListener('click', e => {
+      const b = e.target.closest('[data-home-sec], [data-home-action], #home-equipment'); if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.homeAction === 'free') U.freeSki();
+      else U.menu(b.dataset.homeSec || 'gear');
+    });
+    $('home-equipment').addEventListener('click', e => { e.stopPropagation(); U.menu('gear'); });
     // immersive mode, only where the browser can open a headset (Safari on Apple Vision Pro): 21_xr.js
     el.xr = $('xr');          // (shown by U.ready once start-up has asked the browser: XR.probe runs in boot, after this)
     el.xr.addEventListener('click', e => { e.stopPropagation(); XR.enter(); });
@@ -44,7 +52,7 @@ const UI = (() => {
       if (U.gone) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); location.reload(); } return; }
       // the menu open: Esc puts it away (and the run goes on); Enter and space belong to the button that has the focus
       const mine = (e.code === 'Enter' || e.code === 'Space') && on('#menu button, #bar button, #more button');
-      if (U.open && e.code === 'Escape') { e.preventDefault(); U.menu(false); return; }
+      if (U.open && e.code === 'Escape') { e.preventDefault(); if (U.state === 'run') show(el.menu.dataset.screen === 'pause' ? 'opt' : 'pause'); else U.menu(false); return; }
       if (mine) { muteKey(e.code); return; }
       if (U.open && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); muteKey(e.code); el.mGo.click(); return; }          // (nothing in the menu has the focus: Enter, or space as the owner asked, is the top line, 继续滑 or 出发)
       if ((e.code === 'Enter' || e.code === 'Space') && U.state === 'title' && !U.open) { e.preventDefault(); muteKey(e.code); U.go(); }
@@ -85,6 +93,10 @@ const UI = (() => {
     if (typeof EquipmentUI !== 'undefined') EquipmentUI.init();
     initVariants();
     if (typeof AdventureUI !== 'undefined') AdventureUI.init();
+    if (typeof RecordsUI !== 'undefined') RecordsUI.init();
+    I18N.on(homeStats); Equipment.on(homeStats);
+    if (typeof Adventure !== 'undefined') Adventure.on(homeStats);
+    homeStats();
     if (typeof Rank !== 'undefined') try { Rank.init(); } catch (e) { console.warn(e); }          // (the boards, inside 小红书 only: 19b_rank.js)
     if (typeof XHS !== 'undefined') try { XHS.init(el); } catch (e) { console.warn(e); }            // (the host's buttons, settings, notes, follow: 19c_xhs.js)
   };
@@ -377,7 +389,7 @@ const UI = (() => {
   // still where it is (Game.mode 'hold': nothing steps, but the picture is still drawn, so whatever is picked shows at once behind the shade).
   // On the title page the same menu opens from the buttons beside 出发. While skiing, V steps the view; N R T X G P and ` only in developer mode.
   // Everything the other modules own is reached through what they already expose, and read defensively: a part that is missing has no control.
-  let ease = null, cut = null, back = null, pausedAt = 0, sayT = 0, swAcc = 0, faunaI = 0, evSig = null, hold = null, sec = 'view';
+  let ease = null, cut = null, back = null, pausedAt = 0, sayT = 0, swAcc = 0, faunaI = 0, evSig = null, hold = null, resumeIntent = false, sec = 'adventure';
   const held = [], gy = { id: null, y: 0, on: false, over: false, neg: false };
   const live = () => U.state === 'title' || U.state === 'run';
   const fauna = () => { try { return typeof Fauna !== 'undefined' && Fauna && Fauna.spawn ? Fauna : null; } catch (e) { return null; } };
@@ -414,10 +426,22 @@ const UI = (() => {
     // the column on the left: a part to open, or one of the ways out
     el.menu.addEventListener('click', e => {
       e.stopPropagation(); const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
-      if (b === el.mGo) { if (U.state === 'title') U.go(); else U.menu(false); return; }
+      if (b.classList.contains('screen-back')) {
+        if (b.closest('[data-sec="pause"]')) show('opt');
+        else if (U.state === 'run') show('pause');
+        else U.menu(false);
+        return;
+      }
+      if (b.id === 'pause-resume') { U.resume(); return; }
+      if (b.id === 'pause-restart') { U.toTop(!!(typeof Adventure !== 'undefined' && Adventure.run)); return; }
+      if (b.id === 'pause-photo') { if (typeof Photo !== 'undefined') Photo.enter(); return; }
+      if (b.id === 'pause-quit') { $('pause-confirm').hidden = false; $('pause-quit-confirm').focus(); return; }
+      if (b.id === 'pause-quit-cancel') { $('pause-confirm').hidden = true; $('pause-quit').focus(); return; }
+      if (b.id === 'pause-quit-confirm') { U.toTop(); return; }
+      if (b === el.mGo) { if (U.state === 'title') U.go(); else U.resume(); return; }
       if (b === el.mTop) { U.toTop(); return; }
       if (b.id === 'm-photo') { if (typeof Photo !== 'undefined') Photo.enter(); if (e.detail) b.blur(); return; }
-      if (d.sec && b.parentNode === el.nav) { show(d.sec); return; }
+      if (d.sec && (b.parentNode === el.nav || el.pane.contains(b))) { show(d.sec); return; }
       if (d.time) U.setTime(d.time); else if (d.seg) U.gotoKind(d.seg); else if (d.view) U.setView(d.view); else if (d.mtn) U.pickMountain(d.mtn); else if (d.new) U.newMountain(); else if (d.daily) U.daily();
       else if ('animal' in d) { U.animal(d.animal); U.menu(false); } else if (d.plane) { U.plane(); U.menu(false); }
       else if (b === el.oSnd) U.sound(!Sound.on); else if (b === el.oFs) U.fullscreen(); else if (b === el.oLang) I18N.set(EN() ? 'zh' : 'en'); else if (b === el.oQ) { Quality.cycle(); paint(); }
@@ -459,12 +483,41 @@ const UI = (() => {
   function show(s) {
     if (!U.dev && (s === 'view' || s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'adventure';
     if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure'; sec = s;
+    const concept = ['adventure', 'gear', 'records', 'pause'].includes(s);
+    el.menu.dataset.screen = concept ? s : 'legacy';
     for (const b of el.nav.querySelectorAll('button[data-sec]')) b.classList.toggle('on', b.dataset.sec === s);
     for (const x of el.pane.children) x.classList.toggle('on', x.dataset.sec === s);
     el.pane.scrollTop = 0; paint();
     if (s === 'adventure' && typeof AdventureUI !== 'undefined') AdventureUI.render();
+    if (s === 'gear' && typeof EquipmentUI !== 'undefined') EquipmentUI.render(true);
+    if (s === 'records' && typeof RecordsUI !== 'undefined') RecordsUI.render();
+    if (s === 'pause') renderPause();
     if (s === 'rank' && typeof Rank !== 'undefined') Rank.show();
     if (s === 'share' && typeof XHS !== 'undefined') XHS.show();
+  }
+  function homeStats() {
+    if (!el) return;
+    const gear = $('home-gear-label'), stars = $('home-star-total');
+    if (gear) gear.textContent = T(Equipment.label(Equipment.selected));
+    if (stars && typeof Adventure !== 'undefined') {
+      const total = AdventureLevels.levels.reduce((sum, level) => sum + ((Adventure.record(level.id, Equipment.selected) || {}).stars || 0), 0);
+      stars.textContent = '★ ' + total + ' / 15';
+    }
+  }
+  function renderPause() {
+    const root = $('pause-meta'); if (!root) return;
+    root.textContent = '';
+    const run = typeof Adventure !== 'undefined' && Adventure.run;
+    const resume = $('pause-resume');
+    if (resume) resume.disabled = !!(run && /^(completed|failed)$/.test(run.status));
+    if (!run) return;
+    const remaining = Math.max(0, Math.ceil(run.level.limit - run.elapsed)), mm = Math.floor(remaining / 60), ss = String(remaining % 60).padStart(2, '0');
+    const gate = document.createElement('img'), gateUrl = Art.url('icon_gate');
+    if (gateUrl) { gate.src = gateUrl; gate.addEventListener('error', () => gate.removeAttribute('src')); }
+    gate.alt = ''; gate.className = 'pause-meta-icon';
+    root.append(gate, document.createTextNode(T('当前关卡') + ' · ' + T(run.level.name) + '   /   ' +
+      T('关卡进度') + ' ' + run.next + '/' + run.checkpoints.length + '   /   ' +
+      T('剩余') + ' ' + mm + ':' + ss));
   }
   // U.menu(): open or close; U.menu('view'): open at that part (or, open at it already, close)
   U.menu = function (on) {
@@ -472,11 +525,16 @@ const UI = (() => {
     if (typeof on === 'string') { if (U.open && sec === on) on = false; else { show(on); on = true; } }
     if (on == null) on = !U.open; if (on === U.open) return;
     if (!on && typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status)) return;
+    if (!on && U.state === 'run' && hold && !resumeIntent && !U.gone) { if (el.menu.dataset.screen !== 'pause') show('pause'); return; }
     if (on && !live()) return;
+    if (on && U.state === 'run' && typeof on !== 'string') show('pause');
     if (on && U.state === 'run') holdOn();
+    if (!on) resumeIntent = false;
     U.open = on; if (on) { if (!el.pane.querySelector('section.on')) show(sec); paint(); el.say.classList.remove('on'); sayT = 0; }
     const run = U.state === 'run';
     el.mk.textContent = T(run ? 'PAUSED · 暂停' : 'MENU · 菜单'); el.mGo.textContent = T(run ? '继续滑' : '出发'); el.mTop.hidden = !run;
+    const pauseNav = el.nav.querySelector('[data-sec="pause"]'); if (pauseNav) pauseNav.hidden = !run;
+    if (el.menu.dataset.screen === 'pause') renderPause();
     el.menu.classList.toggle('on', on); el.menu.setAttribute('aria-hidden', on ? 'false' : 'true'); el.mn.setAttribute('aria-expanded', on ? 'true' : 'false');
     el.app.classList.toggle('menuopen', on);          // (the thumbs' buttons step aside under it)
     if (U.state === 'title') el.title.classList.toggle('on', !on);          // (the title's own words make way for it, and come back)
@@ -836,7 +894,7 @@ const UI = (() => {
   };
   U.nativeBack = function () {
     if (typeof Photo !== 'undefined' && Photo.on) { Photo.exit(); return true; }
-    if (U.open) { U.menu(false); return true; }
+    if (U.open) { if (U.state === 'run') show(el.menu.dataset.screen === 'pause' ? 'opt' : 'pause'); else U.menu(false); return true; }
     return U.pause();
   };
   function hush(level, tau) { try { if (Sound.rig && Sound.unlocked && Sound.ctx) Sound.rig.fade(level, Sound.ctx.currentTime, tau); } catch (e) { } }
@@ -859,11 +917,15 @@ const UI = (() => {
     hush(Sound.on ? Sound.level : 0, 0.12); U.keepAwake();
   }
   // (not in the headset: the menu is a page on the canvas's side of the glass, out of sight in there. Going in can blur the window)
-  U.pause = function () { if (!el || U.state !== 'run' || U.gone || XR.active) return false; if (!U.open) U.menu(true); return true; };
-  U.resume = function () { if (!el || !U.open || U.gone) return false; U.menu(false); return true; };
+  U.pause = function () { if (!el || U.state !== 'run' || U.gone || XR.active) return false; if (!U.open) U.menu('pause'); return true; };
+  U.resume = function () {
+    if (!el || !U.open || U.gone || (typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status))) return false;
+    resumeIntent = true; U.menu(false); return true;
+  };
   // back to the gate and the title page (the picture goes to black first; the menu's own clock times that)
-  U.toTop = function () {
+  U.toTop = function (restartAdventure = false) {
     if (!el || U.state !== 'run' || U.gone) return false;
+    const retry = restartAdventure && typeof Adventure !== 'undefined' && Adventure.run ? Adventure.run.level.id : null;
     U.state = 'leaving';          // (neither a run nor the title until the black is down: no key does anything)
     hold = null; U.paused = false; U.open = false; el.menu.classList.remove('on'); el.menu.setAttribute('aria-hidden', 'true'); el.app.classList.remove('menuopen'); el.mn.setAttribute('aria-expanded', 'false');
     el.cut.classList.add('slow'); el.cut.style.opacity = 1; cut = { t: 0, stage: 9, n: 0, fn: null };
@@ -876,6 +938,7 @@ const UI = (() => {
       el.app.classList.remove('run'); el.hud.classList.remove('on'); el.shade.classList.remove('run'); el.hint.classList.remove('on'); el.seg.classList.remove('on'); el.title.classList.add('on'); U.hintKind = null;
       el.day.classList.remove('held');
       cut = { t: 0, stage: 1, n: 0, fn: null }; hush(Sound.on ? Sound.level : 0, 0.4); paint();
+      if (retry && Adventure.start(retry)) U.go();
     }, 300);
     return true;
   };
