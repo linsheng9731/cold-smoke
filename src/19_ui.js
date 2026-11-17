@@ -522,12 +522,13 @@ const UI = (() => {
   // U.menu(): open or close; U.menu('view'): open at that part (or, open at it already, close)
   U.menu = function (on) {
     if (!el || U.gone) return;
-    if (typeof on === 'string') { if (U.open && sec === on) on = false; else { show(on); on = true; } }
+    const requestedScreen = typeof on === 'string';
+    if (requestedScreen) { if (U.open && sec === on) on = false; else { show(on); on = true; } }
     if (on == null) on = !U.open; if (on === U.open) return;
     if (!on && typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status)) return;
     if (!on && U.state === 'run' && hold && !resumeIntent && !U.gone) { if (el.menu.dataset.screen !== 'pause') show('pause'); return; }
     if (on && !live()) return;
-    if (on && U.state === 'run' && typeof on !== 'string') show('pause');
+    if (on && U.state === 'run' && !requestedScreen) show('pause');
     if (on && U.state === 'run') holdOn();
     if (!on) resumeIntent = false;
     U.open = on; if (on) { if (!el.pane.querySelector('section.on')) show(sec); paint(); el.say.classList.remove('on'); sayT = 0; }
