@@ -26,6 +26,7 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 <link rel="stylesheet" href="fonts/fonts.css">
 </head><body>${body}</body></html>`);
 fs.cpSync(path.join(root, 'xhs', 'fonts'), path.join(out, 'fonts'), { recursive: true });
+fs.cpSync(path.join(root, 'art'), path.join(out, 'art'), { recursive: true });
 fs.copyFileSync(path.join(root, 'LICENSE'), path.join(out, 'LICENSE'));
 fs.cpSync(path.join(root, 'mobile', 'licenses'), path.join(out, 'licenses'), { recursive: true });
 buildSync({ entryPoints: [path.join(root, 'mobile', 'native.js')], outfile: path.join(out, 'native.js'), bundle: true, format: 'iife', target: ['safari15', 'chrome100'], legalComments: 'eof' });

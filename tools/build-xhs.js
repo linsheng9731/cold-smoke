@@ -113,6 +113,7 @@ fs.writeFileSync(raw, polyfills + '\nself.COLD_SMOKE.build = ' + JSON.stringify(
 execFileSync('npx', ['--yes', 'esbuild@0.24.2', raw, '--target=chrome61', '--minify', '--charset=utf8', '--legal-comments=none', '--outfile=' + path.join(out, 'app.js'), '--log-level=warning'], { stdio: 'inherit', cwd: root });
 fs.unlinkSync(raw);
 for (const f of fs.readdirSync(path.join(root, 'xhs', 'fonts'))) fs.copyFileSync(path.join(root, 'xhs', 'fonts', f), path.join(out, 'fonts', f));
+fs.cpSync(path.join(root, 'art'), path.join(out, 'art'), { recursive: true });
 
 // ---- the container's rules, checked on what is about to be zipped
 const appJs = fs.readFileSync(path.join(out, 'app.js'), 'utf8'), problems = [];

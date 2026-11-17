@@ -178,6 +178,10 @@ test('offline build contains a full document, local fonts, CSP and no remote fon
   assert.match(html, /script-src 'self'/);
   assert.match(html, /fonts\/fonts.css/);
   assert.doesNotMatch(game, /fonts\.googleapis\.com|director mode renders/i);
+  assert.ok(fs.existsSync(path.join(root, 'dist-mobile/art/backgrounds/zones/bg_zone_01_frost_valley.webp')));
+  assert.match(game, /art\/backgrounds\/zones\/bg_zone_01_frost_valley\.webp/);
+  assert.doesNotMatch(game, /data:image\/webp;base64/);
+  assert.match(read('tools/build-xhs.js'), /path\.join\(root, 'art'\), path\.join\(out, 'art'\)/);
   assert.doesNotMatch(html, /<script>/);
   new vm.Script(game);
   new vm.Script(read('dist-mobile/native.js'));
@@ -191,6 +195,13 @@ test('existing dependency-free web build remains separate from the native bridge
   execFileSync(process.execPath, ['build.js'], { cwd: root });
   const html = read('dist/index.html');
   assert.match(html, /fonts\.googleapis\.com/);
+  const match = html.match(/self\.COLD_SMOKE_ART = (\{.*?\});/s);
+  assert.ok(match);
+  const inlineArt = JSON.parse(match[1]);
+  assert.ok(Object.keys(inlineArt).length > 20);
+  for (const value of Object.values(inlineArt)) assert.match(value, /^data:image\/(?:webp|svg\+xml);base64,/);
+  assert.match(inlineArt.bg_zone_01_frost_valley, /^data:image\/webp;base64,/);
+  assert.doesNotMatch(html, /\/home\/ubuntu\//);
   assert.doesNotMatch(html, /src="native\.js"/);
   const script = html.match(/<script>([\s\S]*)<\/script>/)[1];
   new vm.Script(script);
