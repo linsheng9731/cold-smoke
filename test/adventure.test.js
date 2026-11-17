@@ -117,8 +117,7 @@ test('new concept-screen template labels have English translations', () => {
   const { I18N } = harness();
   for (const label of [
     '冒险模式', '器材', '记录', '冒险星级', '寒烟山', '返回', '暂停菜单',
-    '确认返回主菜单？', '确认', '双板最佳用时', '单板最佳用时',
-    '界面菜单使用随附美术，3D雪山仍由程序生成。'
+    '确认返回主菜单？', '确认', '双板最佳用时', '单板最佳用时'
   ]) assert.notEqual(I18N.t(label), label, label);
 });
 test('adventure initializes and rerenders on a legacy WebView without replaceChildren', () => {
@@ -189,6 +188,19 @@ test('adventure cards select without starting, open levels start explicitly, and
   assert.equal(placeholder.disabled, true);
   assert.equal(placeholder.querySelector('.adv-card-stars'), null);
   placeholder.click(); assert.deepEqual(starts, ['pine-2']);
+  h.c.UI.state = 'run'; h.c.UI.open = false;
+  h.c.UI.menu = section => { h.c.UI.open = true; h.c.UI.shown = section; };
+  for (const id of ['pine-2', 'pine-3', 'pine-4']) { h.c.UI.open = false; h.complete(id); }
+  root = elements['adv-content'];
+  const result = root.children.find(n => n.className === 'adv-result');
+  assert.ok(result);
+  const next = result.children.find(n => n.className === 'adv-actions').children.find(b => b.text === h.I18N.t('下一关'));
+  assert.ok(next);
+  next.click();
+  root = elements['adv-content']; row = root.children.find(n => n.className === 'adv-level-row');
+  assert.match(row.children.find(card => card.dataset.level === 'mist-1').className, /selected/);
+  assert.ok(root.children.some(n => n.className === 'adv-offer'));
+  assert.deepEqual(starts, ['pine-2']);
   root.children.find(n => n.className === 'adv-tabs').children.find(n => n.dataset.chapter === 'ridge').click();
   root = elements['adv-content']; row = root.children.find(n => n.className === 'adv-level-row');
   assert.ok(row.children.every(card => card.disabled));
@@ -197,7 +209,7 @@ test('adventure cards select without starting, open levels start explicitly, and
 });
 test('pause restart re-enters the same adventure level without changing its equipment', () => {
   const source = read('src/19_ui.js');
-  const start = source.indexOf('  U.toTop = function (restartAdventure = false) {'), end = source.indexOf('\n  U.beginAdventure', start);
+  const start = source.indexOf('  U.toTop = function (restartAdventure = false, restartFreeSki = false) {'), end = source.indexOf('\n  U.beginAdventure', start);
   const calls = [], timers = [], classes = { add() {}, remove() {} };
   const equipment = { selected: 'snowboard' };
   const adventure = {
@@ -222,6 +234,26 @@ test('pause restart re-enters the same adventure level without changing its equi
   timers[0]();
   assert.deepEqual(calls, ['leave', ['start', 'pine-2', 'snowboard'], 'go']);
 });
+test('free-ski pause restart starts a fresh run on the same mountain', () => {
+  const source = read('src/19_ui.js');
+  const start = source.indexOf('  U.toTop = function (restartAdventure = false, restartFreeSki = false) {'), end = source.indexOf('\n  U.beginAdventure', start);
+  const timers = [], calls = [], classes = { add() {}, remove() {} }, course = { seed: 4321 };
+  const UI = { state: 'run', gone: false, paused: true, open: true, go() { calls.push(['go', course.seed, this.state]); } };
+  const el = {
+    menu: { classList: classes, setAttribute() {} }, app: { classList: classes }, mn: { setAttribute() {} },
+    cut: { classList: classes, style: {} }, hud: { classList: classes }, shade: { classList: classes },
+    hint: { classList: classes }, seg: { classList: classes }, title: { classList: classes }, day: { classList: classes }
+  };
+  const context = vm.createContext({
+    U: UI, el, Course: course, Adventure: { run: null }, App: { swapping: false, resumeK: 0, paused: true },
+    Game: { reset() { calls.push('reset'); }, mode: 'run' }, Input: { drag: null, keys: {} }, Sound: { on: true, level: 1 },
+    settle() {}, paint() {}, hush() {}, setTimeout: fn => timers.push(fn)
+  });
+  vm.runInContext(source.slice(start, end), context);
+  assert.equal(UI.toTop(false, true), true);
+  timers[0]();
+  assert.deepEqual(calls, ['reset', ['go', 4321, 'title']]);
+});
 test('pause resume rejects completed and failed runs before releasing the hold', () => {
   const source = read('src/19_ui.js'), start = source.indexOf('  U.resume = function () {'), end = source.indexOf('\n  // back to the gate', start);
   const calls = [], UI = { open: true, gone: false, menu: value => calls.push(value) };
@@ -231,6 +263,91 @@ test('pause resume rejects completed and failed runs before releasing the hold',
   context.Adventure.run.status = 'failed'; assert.equal(UI.resume(), false);
   context.Adventure.run.status = 'running'; assert.equal(UI.resume(), true);
   assert.deepEqual(calls, [false]);
+});
+test('Escape and Android back resume from pause but return sub-screens to pause', () => {
+  const source = read('src/19_ui.js'), start = source.indexOf('  function backFromMenu() {'), end = source.indexOf('\n  function show(s)', start);
+  const calls = [], menu = { dataset: { screen: 'pause' } };
+  const UI = { state: 'run', open: true, gone: false, resume: () => calls.push('resume'), menu: value => calls.push(['menu', value]) };
+  const context = vm.createContext({ U: UI, el: { menu }, show: section => calls.push(['show', section]), Photo: { on: false } });
+  vm.runInContext(source.slice(start, end) + '\nglobalThis.backFromMenu = backFromMenu;', context);
+  context.backFromMenu();
+  assert.deepEqual(calls, ['resume']);
+  menu.dataset.screen = 'opt'; context.backFromMenu();
+  assert.deepEqual(calls, ['resume', ['show', 'pause']]);
+  assert.match(source, /if \(U\.open && e\.code === 'Escape'\) \{ e\.preventDefault\(\); backFromMenu\(\); return; \}/);
+  assert.match(source, /if \(b\.classList\.contains\('screen-back'\)\) \{ backFromMenu\(\); return; \}/);
+  const nativeStart = source.indexOf('  U.nativeBack = function () {'), nativeEnd = source.indexOf('\n  function hush', nativeStart);
+  vm.runInContext(source.slice(nativeStart, nativeEnd), context);
+  menu.dataset.screen = 'pause'; assert.equal(UI.nativeBack(), true);
+  menu.dataset.screen = 'records'; assert.equal(UI.nativeBack(), true);
+  assert.deepEqual(calls, ['resume', ['show', 'pause'], 'resume', ['show', 'pause']]);
+});
+test('short screens keep the required Home, Adventure, and Pause controls compact', () => {
+  const template = read('template.html');
+  assert.match(template, /#app\.short \.home-top \{ right: calc\(var\(--gr\) \+ 88px\)/);
+  assert.match(template, /#app\.short #title \.home-kicker, #app\.short #title h1 \{ display: none/);
+  assert.match(template, /#app\.short #title \.how, #app\.short \.home-footer \.keys, #app\.short \.home-footer \.more \{ display: none/);
+  assert.match(template, /#app\.menuopen #clock, #app\.menuopen #day, #app\.menuopen #hud \.spd/);
+  assert.match(template, /#app\.short \.adv-hero \{ min-height: 128px; height: 128px/);
+  assert.ok(template.includes('#app.short .adv-detail { gap: 0; padding: 4px 12px; }'));
+  assert.ok(template.includes('#app.short .adv-detail > .adv-lock-reason, #app.short .adv-detail > button:not(.adv-start) { display: none; }'));
+  assert.match(template, /#app\.short \.adv-card \{[^}]*height: 74px/);
+  assert.match(template, /#app\.short \.pause-actions button \{ min-height: 44px/);
+  const pauseScreen = template.match(/<section data-sec="pause"[\s\S]*?<\/section>/)[0];
+  assert.doesNotMatch(pauseScreen, /class="screen-back"/);
+  assert.match(template, /<button type="button" class="pill" data-sec="keys">操作说明<\/button>/);
+  assert.doesNotMatch(template, /界面菜单使用随附美术/);
+});
+test('completed and failed Adventure results keep the requested result screen instead of opening Pause', () => {
+  const source = read('src/19_ui.js'), start = source.indexOf('  U.menu = function (on) {'), end = source.indexOf('\n  // (the old name of the open/close', start);
+  const calls = [], classes = { toggle() {}, remove() {} }, menu = { dataset: { screen: 'pause' }, classList: classes, setAttribute() {} };
+  const UI = { state: 'run', open: false, gone: false, dev: false };
+  const el = {
+    menu, pane: { querySelector: () => ({}), scrollTop: 0 }, nav: { querySelector: () => null },
+    mk: {}, mGo: {}, mTop: {}, mn: { setAttribute() {} }, say: { classList: classes },
+    app: { classList: classes }, title: { classList: classes }
+  };
+  const context = vm.createContext({
+    U: UI, el, sec: 'pause', Adventure: { run: { status: 'completed' } },
+    live: () => true, show(screen) { calls.push(screen); menu.dataset.screen = screen; context.sec = screen; },
+    paint() {}, holdOn() { calls.push('hold'); }, renderPause() {}, T: value => value
+  });
+  vm.runInContext(source.slice(start, end), context);
+  for (const status of ['completed', 'failed']) {
+    UI.open = false; menu.dataset.screen = 'pause'; context.Adventure.run.status = status; calls.length = 0;
+    assert.equal(UI.menu('adventure'), undefined);
+    assert.equal(menu.dataset.screen, 'adventure', status);
+    assert.deepEqual(calls, ['adventure', 'hold']);
+  }
+  assert.match(read('src/19e_adventure_ui.js'), /if \(r\.result && UI\.state === 'run' && !UI\.open\) UI\.menu\('adventure'\);/);
+});
+test('Next Level selects a demo-locked level and opens its beta offer', () => {
+  const source = read('src/19e_adventure_ui.js'), start = source.indexOf('  function nextLevel(id) {'), end = source.indexOf('\n  }', start) + 4;
+  const calls = [], context = vm.createContext({
+    offer: false, access: id => id === 'mist-1' ? 'demo' : 'open',
+    begin: id => calls.push(['begin', id]), select: id => calls.push(['select', id])
+  });
+  vm.runInContext(source.slice(start, end) + '\nglobalThis.nextLevel = nextLevel;', context);
+  context.nextLevel('mist-1');
+  assert.equal(context.offer, true);
+  assert.deepEqual(calls, [['select', 'mist-1']]);
+  context.offer = false; context.nextLevel('pine-1');
+  assert.equal(context.offer, false);
+  assert.deepEqual(calls[1], ['begin', 'pine-1']);
+  assert.match(source, /if \(chapterId === 'mist' && Adventure\.isBeta\(\)\) \{[\s\S]*?else if \(offer\) \{/);
+});
+test('focused Home controls receive native Enter/Space while unfocused Enter remains Free Ski', () => {
+  const source = read('src/19_ui.js'), start = source.indexOf('    function homeButtonOwnsKey(e) {'), end = source.indexOf('\n    function muteKey', start);
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(start, end) + '\nglobalThis.homeButtonOwnsKey = homeButtonOwnsKey;', context);
+  const homeTarget = { closest: selector => selector.includes('#title [data-home-sec]') ? {} : null };
+  const canvasTarget = { closest: () => null };
+  for (const code of ['Enter', 'Space']) {
+    assert.equal(context.homeButtonOwnsKey({ code, target: homeTarget }), true);
+    assert.equal(context.homeButtonOwnsKey({ code, target: canvasTarget }), false);
+  }
+  assert.ok(source.indexOf('if (homeButtonOwnsKey(e)) return;') < source.indexOf("if (/^Arrow/.test(e.code) || e.code === 'Space') e.preventDefault();"));
+  assert.match(source, /e\.code === 'Space'\) && U\.state === 'title' && !U\.open\) \{ e\.preventDefault\(\); muteKey\(e\.code\); U\.go\(\); \}/);
 });
 test('home star total is calculated from the currently selected equipment records', () => {
   const source = read('src/19_ui.js'), start = source.indexOf('  function homeStats() {'), end = source.indexOf('\n  function renderPause()', start);
