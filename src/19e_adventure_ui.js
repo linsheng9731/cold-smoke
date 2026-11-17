@@ -26,6 +26,11 @@ const AdventureUI = (() => {
     return img;
   }
   function begin(id) { if (access(id) === 'open') { offer = false; UI.beginAdventure(id); } }
+  function nextLevel(id) {
+    const state = access(id);
+    if (state === 'open') begin(id);
+    else { offer = state === 'demo'; select(id); }
+  }
   V.init = function () {
     root = $('adv-content'); hud = $('adv-hud'); hudTitle = $('adv-title'); hudGoal = $('adv-goal'); hudGuide = $('adv-guide'); hudClock = $('adv-clock');
     Adventure.init(); defaults(); Adventure.on(() => { V.render(); V.frame(1); }); I18N.on(() => { V.render(); V.frame(1); });
@@ -45,7 +50,7 @@ const AdventureUI = (() => {
       const row = node('div', '', 'adv-actions');
       row.append(button('重试', () => begin(r.level.id), !result.ok));
       const next = AdventureLevels.levels[AdventureLevels.levels.indexOf(r.level) + 1];
-      if (result.ok && next) row.append(button('下一关', () => begin(next.id), true));
+      if (result.ok && next) row.append(button('下一关', () => nextLevel(next.id), true));
       if (result.ok && !next) card.append(node('p', T('体验内容已全部完成')));
       row.append(button('自由滑', () => UI.freeSki())); card.append(row); root.append(card);
     }
