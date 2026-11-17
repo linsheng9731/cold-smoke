@@ -53,7 +53,7 @@ const UI = (() => {
       if (U.gone) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); location.reload(); } return; }
       // the menu open: Esc puts it away (and the run goes on); Enter and space belong to the button that has the focus
       const mine = (e.code === 'Enter' || e.code === 'Space') && on('#menu button, #bar button, #more button');
-      if (U.open && e.code === 'Escape') { e.preventDefault(); if (U.state === 'run') show(el.menu.dataset.screen === 'pause' ? 'opt' : 'pause'); else U.menu(false); return; }
+      if (U.open && e.code === 'Escape') { e.preventDefault(); backFromMenu(); return; }
       if (mine) { muteKey(e.code); return; }
       if (U.open && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); muteKey(e.code); el.mGo.click(); return; }          // (nothing in the menu has the focus: Enter, or space as the owner asked, is the top line, 继续滑 or 出发)
       if ((e.code === 'Enter' || e.code === 'Space') && U.state === 'title' && !U.open) { e.preventDefault(); muteKey(e.code); U.go(); }
@@ -431,12 +431,7 @@ const UI = (() => {
     // the column on the left: a part to open, or one of the ways out
     el.menu.addEventListener('click', e => {
       e.stopPropagation(); const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
-      if (b.classList.contains('screen-back')) {
-        if (b.closest('[data-sec="pause"]')) show('opt');
-        else if (U.state === 'run') show('pause');
-        else U.menu(false);
-        return;
-      }
+      if (b.classList.contains('screen-back')) { backFromMenu(); return; }
       if (b.id === 'pause-resume') { U.resume(); return; }
       if (b.id === 'pause-restart') {
         const adventureRun = typeof Adventure !== 'undefined' && Adventure.run;
@@ -488,6 +483,12 @@ const UI = (() => {
     held.push(h);
   }
   // which part of the menu is open
+  function backFromMenu() {
+    if (U.state === 'run') {
+      if (el.menu.dataset.screen === 'pause') U.resume();
+      else show('pause');
+    } else U.menu(false);
+  }
   function show(s) {
     if (!U.dev && (s === 'view' || s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'adventure';
     if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure'; sec = s;
@@ -903,7 +904,7 @@ const UI = (() => {
   };
   U.nativeBack = function () {
     if (typeof Photo !== 'undefined' && Photo.on) { Photo.exit(); return true; }
-    if (U.open) { if (U.state === 'run') show(el.menu.dataset.screen === 'pause' ? 'opt' : 'pause'); else U.menu(false); return true; }
+    if (U.open) { backFromMenu(); return true; }
     return U.pause();
   };
   function hush(level, tau) { try { if (Sound.rig && Sound.unlocked && Sound.ctx) Sound.rig.fade(level, Sound.ctx.currentTime, tau); } catch (e) { } }

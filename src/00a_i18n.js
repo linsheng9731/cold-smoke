@@ -139,7 +139,6 @@ const I18N = (() => {
     '星级和最佳用时按器材分别记录。': 'Stars and best times are recorded separately for each equipment.',
     '双板最佳用时': 'Ski best', '单板最佳用时': 'Snowboard best',
     '锁定': 'Locked', '寒烟山': 'Mount Cold Smoke', '暂停菜单': 'Pause menu', '确认': 'Confirm',
-    '界面菜单使用随附美术，3D雪山仍由程序生成。': 'Menus use supplied artwork; the 3D mountain remains procedural.',
     '给验收用，不是游戏的一部分 · 小圆点是推荐的版本': 'For review, not part of the game · the dot marks the recommended version', '恢复推荐': 'Reset to recommended', '推荐': 'Recommended',
     // ---- the versions page (Variants: the rows' names and their versions, as each module registers them)
     '镜头': 'Camera', '人物与动作': 'Skier & motion', '画面': 'Picture', '雪': 'Snow', '场景与天气': 'Scene & weather', '手感': 'Feel', '新加的': 'New',
