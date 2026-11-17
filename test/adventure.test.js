@@ -261,6 +261,12 @@ test('all equipment UI and control hints have English translations', () => {
   assert.match(read('src/19f_equipment_ui.js'), /e\.code === 'Space' \|\| e\.code === 'Enter'/);
 });
 
+test('equipment buttons keep their base and selected styles above the adventure menu reset', () => {
+  const html = read('template.html');
+  assert.match(html, /#menu \.equipment button\s*\{[^}]*border: 1px solid var\(--hair\)/);
+  assert.match(html, /#menu \.equipment button\[aria-pressed="true"\]\s*\{[^}]*border-color: var\(--sun\); color: var\(--sun\)/);
+});
+
 test('equipment selector consumes pointer and keyboard activation without starting a run', () => {
   class Element {
     constructor(tag = 'div') { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.handlers = {}; this.attrs = {}; this.isConnected = true; }
