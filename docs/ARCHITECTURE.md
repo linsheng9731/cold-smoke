@@ -9,7 +9,7 @@ Mid-range phones are looked after by the Quality levels below.
 
 ## Build
 
-`build.js` concatenates `src/*.js` (in file-name order) into `template.html` and writes `dist/index.html` (an HTML fragment, for hosts that add their own document) and `dist/dev.html` (the same page as a full document; use this one anywhere else). Query parameters: `backend=webgl2` forces the fallback renderer; `lang=zh|en` picks the language; `v-<name>=<id>` picks a Variant; `nebres`, `cloudres`, `vistares`, `cityres` set bake resolutions. `dev` (or a path ending in `/dev`, which `tools/serve.js` serves as the game) opens developer mode. The 小红书 build sets `COLD_SMOKE.noDev` and ignores both.
+`build.js` concatenates `src/*.js` (in file-name order) into `template.html` and writes `dist/index.html` (an HTML fragment, for hosts that add their own document) and `dist/dev.html` (the same page as a full document; use this one anywhere else). It evaluates the stable-ID map in `src/03c_art.js`, then embeds referenced assets from `art/` as data URIs in `self.COLD_SMOKE_ART`. The mobile and 小红书 builds copy `art/` alongside their scripts, which resolve the same map as relative `art/...` URLs. Only the current screen background and visible cards load; missing assets fall back to navy gradients. Query parameters: `backend=webgl2` forces the fallback renderer; `lang=zh|en` picks the language; `v-<name>=<id>` picks a Variant; `nebres`, `cloudres`, `vistares`, `cityres` set bake resolutions. `dev` (or a path ending in `/dev`, which `tools/serve.js` serves as the game) opens developer mode. The 小红书 build sets `COLD_SMOKE.noDev` and ignores both.
 
 ## How it is put together
 
@@ -21,6 +21,7 @@ Mid-range phones are looked after by the Quality levels below.
 - `07_game.js` physics, pose and chase camera, `08_skier.js` and `08b_deer.js` the figures (distance fields turned into meshes at load), `14_trees.js`.
 - `10_spray.js` the snow thrown by the edges (a lit participating medium plus glinting grains), `11_dust.js` the fine falling snow, `15_shafts.js` light in the air (used after dark for the beam of the headlamp).
 - `09_post.js` bloom, lens, motion blur, grade. `18_sound.js` all sound, synthesised. `19_ui.js` loading page, title, HUD, and the menu.
+- `19e_adventure_ui.js` and `19f_equipment_ui.js` implement adventure selection/results, gear preview/confirmation, records, and gear-specific progression display. Menu imagery is separate from the procedural 3D renderer; the supplied pack's licensing status is documented in `art/SOURCE.md`.
 
 ## Testing without a GPU
 
