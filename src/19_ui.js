@@ -46,6 +46,7 @@ const UI = (() => {
     addEventListener('keydown', e => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA') return;     // (a number in the developer panel keeps its own keys)
+      if (homeButtonOwnsKey(e)) return;
       if (/^Arrow/.test(e.code) || e.code === 'Space') e.preventDefault();          // these would scroll a page; here they ski
       if (e.repeat) return;
       const on = sel => e.target && e.target.closest && e.target.closest(sel);      // (a control reached with the tab key takes its own Enter)
@@ -65,6 +66,10 @@ const UI = (() => {
         else if (e.code === 'KeyH') U.menu('keys'); else if (e.code === 'Backquote') { if (U.dev) U.menu('vers'); }
       }
     });
+    function homeButtonOwnsKey(e) {
+      return (e.code === 'Enter' || e.code === 'Space') && !!(e.target && e.target.closest &&
+        e.target.closest('#title [data-home-sec], #title [data-home-action], #home-equipment'));
+    }
     function muteKey(c) { try { if (typeof Input !== 'undefined' && Input.keys) { Input.mute = c; Input.keys[c] = false; } } catch (err) { } }
     el.snd.addEventListener('click', e => { e.stopPropagation(); U.sound(!Sound.on); if (e.detail) el.snd.blur(); });
     el.fs.addEventListener('click', e => { e.stopPropagation(); U.fullscreen(); });
