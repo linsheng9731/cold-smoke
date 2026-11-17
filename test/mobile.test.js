@@ -181,7 +181,10 @@ test('offline build contains a full document, local fonts, CSP and no remote fon
   assert.ok(fs.existsSync(path.join(root, 'dist-mobile/art/backgrounds/zones/bg_zone_01_frost_valley.webp')));
   assert.match(game, /art\/backgrounds\/zones\/bg_zone_01_frost_valley\.webp/);
   assert.doesNotMatch(game, /data:image\/webp;base64/);
-  assert.match(read('tools/build-xhs.js'), /path\.join\(root, 'art'\), path\.join\(out, 'art'\)/);
+  const xhsBuild = read('tools/build-xhs.js');
+  assert.match(xhsBuild, /path\.join\(root, 'art'\)/);
+  assert.match(xhsBuild, /filter:\s*src\s*=>\s*fs\.statSync\(src\)\.isDirectory\(\)/);
+  assert.match(xhsBuild, /webp\|png\|svg/);
   assert.doesNotMatch(html, /<script>/);
   new vm.Script(game);
   new vm.Script(read('dist-mobile/native.js'));
