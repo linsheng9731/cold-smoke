@@ -170,7 +170,11 @@ test('a failed photo write does not permanently lock sharing', async () => {
 });
 
 test('offline build contains a full document, local fonts, CSP and no remote font loader', () => {
+  const stale = path.join(root, 'dist-mobile', 'stale.txt');
+  fs.mkdirSync(path.dirname(stale), { recursive: true });
+  fs.writeFileSync(stale, 'stale');
   execFileSync(process.execPath, ['tools/build-mobile.js'], { cwd: root });
+  assert.equal(fs.existsSync(stale), false);
   const html = read('dist-mobile/index.html'), game = read('dist-mobile/game.js');
   assert.match(html, /^<!doctype html>/);
   assert.match(html, /viewport-fit=cover/);

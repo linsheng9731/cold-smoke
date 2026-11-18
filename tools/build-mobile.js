@@ -4,6 +4,7 @@ const { buildSync } = require('esbuild');
 
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist-mobile');
+fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 let template = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
 // Only the browser build fetches fonts. Native builds must boot in airplane mode.
