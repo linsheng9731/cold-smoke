@@ -342,7 +342,7 @@ const Sound = (() => {
     if (A.ctx.state !== 'running') A.ctx.resume();
     A.rig.fade(A.on ? A.level : 0, A.ctx.currentTime, 0.5);
   };
-  A.kick = function () { if (!A.rig || Game.s.dp !== undefined) return; const t = A.now(); A.rig.chirp(t + 0.06, 0.5, -0.25, 0.9); setTimeout(() => { if (A.rig) A.rig.chirp(A.now(), 0.42, 0.25, 1.0); }, 430); };      // pushing off: two strides (a start made with the poles is heard through its `pole` events instead)
+  A.kick = function () { if (!A.rig || Game.equipment === 'snowboard' || Game.s.dp !== undefined) return; const t = A.now(); A.rig.chirp(t + 0.06, 0.5, -0.25, 0.9); setTimeout(() => { if (A.rig) A.rig.chirp(A.now(), 0.42, 0.25, 1.0); }, 430); };      // pushing off: two strides (a start made with the poles is heard through its `pole` events instead)
   A.setOn = function (on) { A.on = on; if (A.rig && A.unlocked) A.rig.fade(on ? A.level : 0, A.ctx.currentTime, 0.12); };
   A.now = () => A.ctx.currentTime + 0.012;
   A.snapshot = function () {
@@ -384,7 +384,7 @@ const Sound = (() => {
     if (!A.rig) return; const t = A.now(), S = Game.s;
     if (ev.type === 'land') { A.rig.down(t, ev.v, ev.airT); if (ev.airT > 0.14 || ev.v > 1.6) A.rig.land(ev.v * (ev.airT > 0.14 ? 1 : 0.5), t); }
     else if (ev.type === 'takeoff') { const f = A.flight(); A.rig.takeoff(t, f.T, f.H); }
-    else if (ev.type === 'pole') A.rig.pole(t);
+    else if (ev.type === 'pole' && Game.equipment !== 'snowboard') A.rig.pole(t);
     else if (ev.type === 'brush' || ev.type === 'crash' || ev.type === 'rustle') {
       const side = sign((ev.x - S.p[0]) * S.r[0] + (ev.z - S.p[2]) * S.r[2]) || 1, stay = typeof Variants !== 'undefined' && Variants.val.tpass === 'b';
       if (ev.type !== 'rustle') A.rig.brush(t, side, ev.type === 'crash');

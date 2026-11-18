@@ -8,7 +8,7 @@ const UI = (() => {
   const TIMES = [['day', '白天'], ['golden', '傍晚'], ['sunset', '日落'], ['dusk', '黄昏'], ['night', '夜晚'], ['dawn', '黎明']];
   const mq = q => !!(window.matchMedia && matchMedia(q).matches);
   // a thing held in the hands (finger, no mouse) or a thing on a desk (keys and a pointer)
-  const handheld = () => mq('(pointer: coarse) and (hover: none)') || (!mq('(pointer: fine)') && 'ontouchstart' in window);
+  const handheld = () => !!(self.COLD_SMOKE && self.COLD_SMOKE.mobile) || mq('(pointer: coarse) and (hover: none)') || (!mq('(pointer: fine)') && 'ontouchstart' in window);
   let el = null, wake = null, fsT = -1e9;
 
   U.init = function () {
@@ -19,15 +19,25 @@ const UI = (() => {
       say: $('say'), sayK: $('say-k'), sayV: $('say-v'), cut: $('cut'), jump: $('jump'), tuck: $('tuck'),
       pause: $('pause'), pauseS: $('pause-s'), pauseT: $('pause-t'), steer: $('steer'), steerV: $('steer-v'),
       clk: $('clock'), clkT: $('clk-t'), clkS: $('clk-s'), clkG: $('clk-g') };
+    const homeArt = Art.url('menu_home');
+    el.title.style.setProperty('--home-art', homeArt ? 'url("' + homeArt + '")' : 'none');
     // developer mode (?dev, or a path ending in /dev; never in the 小红书 build). The time, the weather, the encounters and the versions
     // are only there. Taken out of the tree, not merely hidden, so a normal player cannot reach them.
     U.dev = !(self.COLD_SMOKE && self.COLD_SMOKE.noDev) && (typeof DEV !== 'undefined' && DEV);
     el.app.classList.toggle('dev', !!U.dev);
     if (!U.dev) el.app.querySelectorAll('.dev-only').forEach(n => n.remove());
     el.moreView = el.more.querySelector('[data-sec="view"]'); el.moreDaily = el.more.querySelector('[data-daily]'); el.daily = $('sw-daily'); el.mtDaily = el.menu.querySelector('section[data-sec="mt"] [data-daily]');
+    el.go.lastChild.nodeValue = '自由滑';
     I18N.capture(el.app); I18N.on(relang);
     U.layout();
     el.go.addEventListener('click', e => { e.stopPropagation(); U.go(); });
+    el.title.addEventListener('click', e => {
+      const b = e.target.closest('[data-home-sec], [data-home-action], #home-equipment'); if (!b) return;
+      e.stopPropagation();
+      if (b.dataset.homeAction === 'free') U.freeSki();
+      else U.menu(b.dataset.homeSec || 'gear');
+    });
+    $('home-equipment').addEventListener('click', e => { e.stopPropagation(); U.menu('gear'); });
     // immersive mode, only where the browser can open a headset (Safari on Apple Vision Pro): 21_xr.js
     el.xr = $('xr');          // (shown by U.ready once start-up has asked the browser: XR.probe runs in boot, after this)
     el.xr.addEventListener('click', e => { e.stopPropagation(); XR.enter(); });
@@ -36,15 +46,18 @@ const UI = (() => {
     addEventListener('keydown', e => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA') return;     // (a number in the developer panel keeps its own keys)
+      if (homeButtonOwnsKey(e)) return;
+      const activate = e.code === 'Enter' || e.code === 'Space';
+      if (activate && e.target?.closest?.('#menu button, #bar button, #more button')) { muteKey(e.code); return; }
       if (/^Arrow/.test(e.code) || e.code === 'Space') e.preventDefault();          // these would scroll a page; here they ski
       if (e.repeat) return;
-      const on = sel => e.target && e.target.closest && e.target.closest(sel);      // (a control reached with the tab key takes its own Enter)
       if (U.gone) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); location.reload(); } return; }
-      // the menu open: Esc puts it away (and the run goes on); Enter and space belong to the button that has the focus
-      const mine = (e.code === 'Enter' || e.code === 'Space') && on('#menu button, #bar button, #more button');
-      if (U.open && e.code === 'Escape') { e.preventDefault(); U.menu(false); return; }
-      if (mine) { muteKey(e.code); return; }
-      if (U.open && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); muteKey(e.code); el.mGo.click(); return; }          // (nothing in the menu has the focus: Enter, or space as the owner asked, is the top line, 继续滑 or 出发)
+      if (U.open && e.code === 'Escape') { e.preventDefault(); backFromMenu(); return; }
+      if (U.open && activate) {
+        e.preventDefault(); muteKey(e.code);
+        if (el.menu.dataset.screen === 'legacy') el.mGo.click();
+        return;
+      }
       if ((e.code === 'Enter' || e.code === 'Space') && U.state === 'title' && !U.open) { e.preventDefault(); muteKey(e.code); U.go(); }
       else if (e.code === 'KeyM') { U.sound(!Sound.on); if (U.open) paint(); }
       else if (e.code === 'KeyF') U.fullscreen();
@@ -55,6 +68,10 @@ const UI = (() => {
         else if (e.code === 'KeyH') U.menu('keys'); else if (e.code === 'Backquote') { if (U.dev) U.menu('vers'); }
       }
     });
+    function homeButtonOwnsKey(e) {
+      return (e.code === 'Enter' || e.code === 'Space') && !!(e.target && e.target.closest &&
+        e.target.closest('#title [data-home-sec], #title [data-home-action], #home-equipment'));
+    }
     function muteKey(c) { try { if (typeof Input !== 'undefined' && Input.keys) { Input.mute = c; Input.keys[c] = false; } } catch (err) { } }
     el.snd.addEventListener('click', e => { e.stopPropagation(); U.sound(!Sound.on); if (e.detail) el.snd.blur(); });
     el.fs.addEventListener('click', e => { e.stopPropagation(); U.fullscreen(); });
@@ -64,7 +81,7 @@ const UI = (() => {
       if (!on && !own) U.pause();          // thrown out of the whole screen (the system's Esc, a back gesture): the run waits
     }); /*}web*/
     // nothing here scrolls or zooms
-    el.app.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    el.app.addEventListener('touchmove', e => { if (U.open && e.target.closest('#mpane, #menu nav')) return; e.preventDefault(); }, { passive: false });
     document.addEventListener('gesturestart', e => e.preventDefault());
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('visibilitychange', () => { if (!document.hidden && U.state === 'run') U.keepAwake(); });
@@ -72,7 +89,21 @@ const UI = (() => {
     Input.onFlip = () => U.layout();
     initSwitch();
     initSplits();
+    Equipment.on(() => {
+      mtnSave(true); dbSave(true); MB = DB = null; mtnSig = ''; mtnSaved = dbSaved = 0;
+      SP.best = {}; SP.d3 = null; newRun(); Input.reset(); Game.reset();
+      if (typeof Tracks !== 'undefined') Tracks.reset();
+      if (typeof AdventureUI !== 'undefined') AdventureUI.render();
+      el.xr.hidden = !XR.ok || Equipment.current() === 'snowboard'; howText();
+      if (App.redraw) App.redraw();
+    });
+    if (typeof EquipmentUI !== 'undefined') EquipmentUI.init();
     initVariants();
+    if (typeof AdventureUI !== 'undefined') AdventureUI.init();
+    if (typeof RecordsUI !== 'undefined') RecordsUI.init();
+    I18N.on(homeStats); Equipment.on(homeStats);
+    if (typeof Adventure !== 'undefined') Adventure.on(homeStats);
+    homeStats();
     if (typeof Rank !== 'undefined') try { Rank.init(); } catch (e) { console.warn(e); }          // (the boards, inside 小红书 only: 19b_rank.js)
     if (typeof XHS !== 'undefined') try { XHS.init(el); } catch (e) { console.warn(e); }            // (the host's buttons, settings, notes, follow: 19c_xhs.js)
   };
@@ -93,6 +124,7 @@ const UI = (() => {
   const faOn = () => typeof Variants !== 'undefined' && Variants.val.fa === 'b';
   function howText() {
     const hh = U.hh, framed = U.framed, fa = faOn(); el.app.classList.toggle('fa', fa);
+    if (Equipment.current() === 'snowboard') { el.how.textContent = T(hh ? '单板：左右拖动换刃，前推并转向刹车；右下角跳跃 / 收身。' : '单板：← → 换刃；↑＋转向刹车；空格跳跃；Shift 收身。'); return; }
     el.how.textContent = T(!hh ? (fa ? '← → 转弯 · ↑ ↓ 压板头 / 板尾 · 空格 跳 · Shift 加速' : '← → 或 A D 转弯 · 空格 跳 · ↓ 或 S 加速')
       : fa ? '按住屏幕，左右拖转弯，上下拖压板头 / 板尾 · 右下角 跳 / 加速' : framed ? '按住屏幕左右拖动转弯 · 右下角 跳 / 加速' : '倾斜手机或按住屏幕左右拖动转弯 · 右下角 跳 / 加速');
   }
@@ -100,7 +132,7 @@ const UI = (() => {
   U.stage = function (f, name) { if (!el) return; el.fill.style.transform = 'scaleX(' + f.toFixed(3) + ')'; if (name) el.stage.textContent = T(name); };
   // first frame is on the canvas: let it come up out of the dark, then set the title over it
   U.ready = function () {
-    if (el && el.xr) el.xr.hidden = !XR.ok;
+    if (el && el.xr) el.xr.hidden = !XR.ok || Equipment.current() === 'snowboard';
     if (!el) return; U.state = 'title';
     el.load.classList.remove('on'); el.veil.classList.add('lift'); el.shade.classList.add('on'); el.title.classList.add('on'); el.snd.classList.add('on');
     if (!U.hh && fsAvail()) el.fs.classList.add('on');
@@ -110,8 +142,9 @@ const UI = (() => {
   U.keepAwake = function () { try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(w => { wake = w; }, () => { }); } catch (e) { } };
   // the whole screen, where the browser allows it. On a phone that also lets us ask for the picture to be laid wide for real
   // (/*web{*/ … /*}web*/ is left out of the 小红书 小工具 build: the container manages the screen and forbids asking for it, tools/build-xhs.js)
-  function fsAvail() { /*web{*/ return !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen; /*}web*/ return false; }
+  function fsAvail() { if (self.ColdSmokeMobile && ColdSmokeMobile.native) return false; /*web{*/ return !!document.fullscreenEnabled && !!document.documentElement.requestFullscreen; /*}web*/ return false; }
   U.fullscreen = function (on) {
+    if (self.ColdSmokeMobile && ColdSmokeMobile.native) return;
     /*web{*/ try {
       const is = !!document.fullscreenElement; if (on == null) on = !is; if (on === is) return;
       fsT = performance.now();          // (asked for here: the change that follows, and any loss of focus it brings, is not the player leaving)
@@ -131,9 +164,11 @@ const UI = (() => {
     let asked = false; if (!XR.active) try { asked = await Promise.race([Input.requestTilt(), new Promise(r => setTimeout(() => r(false), 8000))]); } catch (e) { }
     Input.zeroPending = true; U.keepAwake();
     launch();
+    if (typeof Adventure !== 'undefined') Adventure.activate();
     U.state = 'run'; U.t0 = performance.now(); U.segIdx = -1; U.hintT = 0; U.hintKind = null; U.tiltAsked = asked;
     newRun();
     el.shade.classList.add('run'); el.hud.classList.add('on'); el.app.classList.add('run');
+    if (U.nativeHidden || document.hidden) U.pause();
   };
   function showHint(kind) {
     U.hintKind = kind; el.hint.className = kind + ' on';
@@ -361,7 +396,7 @@ const UI = (() => {
   // still where it is (Game.mode 'hold': nothing steps, but the picture is still drawn, so whatever is picked shows at once behind the shade).
   // On the title page the same menu opens from the buttons beside 出发. While skiing, V steps the view; N R T X G P and ` only in developer mode.
   // Everything the other modules own is reached through what they already expose, and read defensively: a part that is missing has no control.
-  let ease = null, cut = null, back = null, pausedAt = 0, sayT = 0, swAcc = 0, faunaI = 0, evSig = null, hold = null, sec = 'view';
+  let ease = null, cut = null, back = null, pausedAt = 0, sayT = 0, swAcc = 0, faunaI = 0, evSig = null, hold = null, resumeIntent = false, sec = 'adventure';
   const held = [], gy = { id: null, y: 0, on: false, over: false, neg: false };
   const live = () => U.state === 'title' || U.state === 'run';
   const fauna = () => { try { return typeof Fauna !== 'undefined' && Fauna && Fauna.spawn ? Fauna : null; } catch (e) { return null; } };
@@ -398,10 +433,20 @@ const UI = (() => {
     // the column on the left: a part to open, or one of the ways out
     el.menu.addEventListener('click', e => {
       e.stopPropagation(); const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
-      if (b === el.mGo) { if (U.state === 'title') U.go(); else U.menu(false); return; }
+      if (b.classList.contains('screen-back')) { backFromMenu(); return; }
+      if (b.id === 'pause-resume') { U.resume(); return; }
+      if (b.id === 'pause-restart') {
+        const adventureRun = typeof Adventure !== 'undefined' && Adventure.run;
+        U.toTop(!!adventureRun, !adventureRun); return;
+      }
+      if (b.id === 'pause-photo') { if (typeof Photo !== 'undefined') Photo.enter(); return; }
+      if (b.id === 'pause-quit') { $('pause-confirm').hidden = false; $('pause-quit-confirm').focus(); return; }
+      if (b.id === 'pause-quit-cancel') { $('pause-confirm').hidden = true; $('pause-quit').focus(); return; }
+      if (b.id === 'pause-quit-confirm') { U.toTop(); return; }
+      if (b === el.mGo) { if (U.state === 'title') U.go(); else U.resume(); return; }
       if (b === el.mTop) { U.toTop(); return; }
       if (b.id === 'm-photo') { if (typeof Photo !== 'undefined') Photo.enter(); if (e.detail) b.blur(); return; }
-      if (d.sec && b.parentNode === el.nav) { show(d.sec); return; }
+      if (d.sec && (b.parentNode === el.nav || el.pane.contains(b))) { show(d.sec); return; }
       if (d.time) U.setTime(d.time); else if (d.seg) U.gotoKind(d.seg); else if (d.view) U.setView(d.view); else if (d.mtn) U.pickMountain(d.mtn); else if (d.new) U.newMountain(); else if (d.daily) U.daily();
       else if ('animal' in d) { U.animal(d.animal); U.menu(false); } else if (d.plane) { U.plane(); U.menu(false); }
       else if (b === el.oSnd) U.sound(!Sound.on); else if (b === el.oFs) U.fullscreen(); else if (b === el.oLang) I18N.set(EN() ? 'zh' : 'en'); else if (b === el.oQ) { Quality.cycle(); paint(); }
@@ -423,7 +468,7 @@ const UI = (() => {
     addEventListener('blur', () => { letGo(); if (performance.now() - fsT > 1200) U.pause(); });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) { letGo(); U.pause(); if (hold) App.paused = true; }          // (out of sight nothing is drawn at all)
-      else if (App.paused && !U.gone) App.paused = false;
+      else if (App.paused && !U.gone && !U.nativeHidden) App.paused = false;
     });
     // a mountain named in the address while the page is open (a link followed, the back button) is gone to as well. Outside dev the address cannot name one.
     addEventListener('hashchange', () => { if (!U.dev) return; const m = /^#seed-(\d{1,9})$/.exec(location.hash); if (m && +m[1] !== Course.seed) U.newMountain(+m[1]); });
@@ -440,25 +485,71 @@ const UI = (() => {
     held.push(h);
   }
   // which part of the menu is open
+  function backFromMenu() {
+    if (U.state === 'run') {
+      if (el.menu.dataset.screen === 'pause') U.resume();
+      else show('pause');
+    } else if (el?.menu.dataset.screen === 'gear' && el.menu.dataset.gearBack === 'adventure') show('adventure');
+    else U.menu(false);
+  }
   function show(s) {
-    if (!U.dev && (s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'view';
-    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'view'; sec = s;
+    if (!U.dev && (s === 'view' || s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'adventure';
+    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure';
+    el.menu.dataset.gearBack = s === 'gear' && U.open && sec === 'adventure' ? 'adventure' : '';
+    sec = s;
+    const concept = ['adventure', 'gear', 'records', 'pause'].includes(s);
+    el.menu.dataset.screen = concept ? s : 'legacy';
     for (const b of el.nav.querySelectorAll('button[data-sec]')) b.classList.toggle('on', b.dataset.sec === s);
     for (const x of el.pane.children) x.classList.toggle('on', x.dataset.sec === s);
     el.pane.scrollTop = 0; paint();
+    if (s === 'adventure' && typeof AdventureUI !== 'undefined') AdventureUI.render();
+    if (s === 'gear' && typeof EquipmentUI !== 'undefined') EquipmentUI.render(true);
+    if (s === 'records' && typeof RecordsUI !== 'undefined') RecordsUI.render();
+    if (s === 'pause') renderPause();
     if (s === 'rank' && typeof Rank !== 'undefined') Rank.show();
     if (s === 'share' && typeof XHS !== 'undefined') XHS.show();
+  }
+  function homeStats() {
+    if (!el) return;
+    const gear = $('home-gear-label'), stars = $('home-star-total');
+    if (gear) gear.textContent = T(Equipment.label(Equipment.selected));
+    if (stars && typeof Adventure !== 'undefined') {
+      const total = AdventureLevels.levels.reduce((sum, level) => sum + ((Adventure.record(level.id, Equipment.selected) || {}).stars || 0), 0);
+      stars.textContent = '★ ' + total + ' / 15';
+    }
+  }
+  function renderPause() {
+    const root = $('pause-meta'); if (!root) return;
+    root.textContent = '';
+    const run = typeof Adventure !== 'undefined' && Adventure.run;
+    const resume = $('pause-resume');
+    if (resume) resume.disabled = !!(run && /^(completed|failed)$/.test(run.status));
+    if (!run) return;
+    const remaining = Math.max(0, Math.ceil(run.level.limit - run.elapsed)), mm = Math.floor(remaining / 60), ss = String(remaining % 60).padStart(2, '0');
+    for (const [label, value] of [['当前关卡', T(run.level.name)], ['关卡进度', run.next + '/' + run.checkpoints.length], ['剩余', mm + ':' + ss]]) {
+      const stat = document.createElement('span');
+      stat.textContent = value;
+      stat.setAttribute('aria-label', T(label) + ': ' + value);
+      root.appendChild(stat);
+    }
   }
   // U.menu(): open or close; U.menu('view'): open at that part (or, open at it already, close)
   U.menu = function (on) {
     if (!el || U.gone) return;
-    if (typeof on === 'string') { if (U.open && sec === on) on = false; else { show(on); on = true; } }
+    const requestedScreen = typeof on === 'string';
+    if (requestedScreen) { if (U.open && sec === on) on = false; else { show(on); on = true; } }
     if (on == null) on = !U.open; if (on === U.open) return;
+    if (!on && typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status)) return;
+    if (!on && U.state === 'run' && hold && !resumeIntent && !U.gone) { if (el.menu.dataset.screen !== 'pause') show('pause'); return; }
     if (on && !live()) return;
+    if (on && U.state === 'run' && !requestedScreen) show('pause');
     if (on && U.state === 'run') holdOn();
+    if (!on) resumeIntent = false;
     U.open = on; if (on) { if (!el.pane.querySelector('section.on')) show(sec); paint(); el.say.classList.remove('on'); sayT = 0; }
     const run = U.state === 'run';
     el.mk.textContent = T(run ? 'PAUSED · 暂停' : 'MENU · 菜单'); el.mGo.textContent = T(run ? '继续滑' : '出发'); el.mTop.hidden = !run;
+    const pauseNav = el.nav.querySelector('[data-sec="pause"]'); if (pauseNav) pauseNav.hidden = !run;
+    if (el.menu.dataset.screen === 'pause') renderPause();
     el.menu.classList.toggle('on', on); el.menu.setAttribute('aria-hidden', on ? 'false' : 'true'); el.mn.setAttribute('aria-expanded', on ? 'true' : 'false');
     el.app.classList.toggle('menuopen', on);          // (the thumbs' buttons step aside under it)
     if (U.state === 'title') el.title.classList.toggle('on', !on);          // (the title's own words make way for it, and come back)
@@ -472,7 +563,7 @@ const UI = (() => {
   function flash(b) { if (!b) return; b.classList.add('hit'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('hit'), 1500); }
   // which of the named hours the clock is nearest to
   function hour() { const C = Sky.cycle, c = ((Sky.clock % C) + C) % C; let best = TIMES[0][0], bd = 1e9; for (const [id] of TIMES) { let d = Math.abs(c - Sky.times[id]); d = Math.min(d, C - d); if (d < bd) { bd = d; best = id; } } return best; }
-  const views = () => Game.views && Game.views.length && Game.setView ? Game.views : null;
+  const views = () => U.dev && Game.views && Game.views.length && Game.setView ? Game.views : null;
   const viewName = () => { const vs = views(); if (!vs) return ''; const v = vs.find(q => q.id === Game.view) || vs[0]; return v.name || String(v.id); };          // (said through T by say)
   // the menu as things stand: the hour held (or, with the clock running, the hour it has reached), the run being skied, the view, the
   // mountain, and whatever of animals, weather and versions this build has
@@ -704,11 +795,11 @@ const UI = (() => {
   let MB = null, mtnSaved = 0, mtnSig = '';
   function mtnAll() {
     if (MB) return MB; MB = {};
-    try { const o = JSON.parse(localStorage.getItem(MKEY) || 'null'); if (o && typeof o === 'object' && !Array.isArray(o)) MB = o; } catch (e) { }
+    try { const o = JSON.parse(localStorage.getItem(Equipment.key(MKEY)) || 'null'); if (o && typeof o === 'object' && !Array.isArray(o)) MB = o; } catch (e) { }
     return MB;
   }
   function mtnRec(all, id) { const b = all[id]; return b && typeof b === 'object' ? b : null; }
-  function mtnSave(force) { if (!MB) return; const t = performance.now(); if (!force && t - mtnSaved < 10000) return; mtnSaved = t; try { localStorage.setItem(MKEY, JSON.stringify(MB)); } catch (e) { } }
+  function mtnSave(force) { if (!MB) return; const t = performance.now(); if (!force && t - mtnSaved < 10000) return; mtnSaved = t; try { localStorage.setItem(Equipment.key(MKEY), JSON.stringify(MB)); } catch (e) { } }
   function mtnListed() { const all = mtnAll(), reg = (typeof Course !== 'undefined' && Course.mountains) || []; return reg.filter(m => m && m.id && (m.released || mtnRec(all, m.id))); }
   function mtnFigs(b) {
     if (!b) return ''; const dist = +b.dist || 0, v = +b.v || 0, air = +b.air || 0, f = [];
@@ -756,8 +847,8 @@ const UI = (() => {
   };
   const DKEY = 'coldsmoke.daily';
   let DB = null, dbSaved = 0;
-  function dbLoad() { const d = App.today(); if (DB && DB.d === d) return DB; DB = { d, seed: App.dailySeed(d), dist: 0, v: 0, air: 0, v3: 0, t3: 0 }; try { const o = JSON.parse(localStorage.getItem(DKEY) || 'null'); if (o && o.d === d && o.seed === DB.seed) Object.assign(DB, { dist: +o.dist || 0, v: +o.v || 0, air: +o.air || 0, v3: +o.v3 || 0, t3: +o.t3 || 0 }); } catch (e) { } if (DB.v3 > 0) SP.d3 = { d, v: DB.v3 }; return DB; }
-  function dbSave(force) { if (!DB) return; const t = performance.now(); if (!force && t - dbSaved < 10000) return; dbSaved = t; try { localStorage.setItem(DKEY, JSON.stringify(DB)); } catch (e) { } }
+  function dbLoad() { const d = App.today(); if (DB && DB.d === d) return DB; DB = { d, seed: App.dailySeed(d), dist: 0, v: 0, air: 0, v3: 0, t3: 0 }; try { const o = JSON.parse(localStorage.getItem(Equipment.key(DKEY)) || 'null'); if (o && o.d === d && o.seed === DB.seed) Object.assign(DB, { dist: +o.dist || 0, v: +o.v || 0, air: +o.air || 0, v3: +o.v3 || 0, t3: +o.t3 || 0 }); } catch (e) { } if (DB.v3 > 0) SP.d3 = { d, v: DB.v3 }; return DB; }
+  function dbSave(force) { if (!DB) return; const t = performance.now(); if (!force && t - dbSaved < 10000) return; dbSaved = t; try { localStorage.setItem(Equipment.key(DKEY), JSON.stringify(DB)); } catch (e) { } }
   // (from the run so far: while it is on today's mountain. A run is one go from 出发; a change of mountain starts measuring afresh)
   function dbTick() { if (!isDaily() || Game.mode !== 'run') return; const b = dbLoad(), R = SP.run; let up = false; if (R.dist > b.dist) { b.dist = R.dist; up = true; } if (R.v > b.v) { b.v = R.v; up = true; } if (R.air > b.air) { b.air = R.air; up = true; } if (up) dbSave(false); }
   function paintDaily() {
@@ -797,8 +888,8 @@ const UI = (() => {
     flash(el.ev.querySelector('[data-plane]')); say('偶遇', v);
   };
   // ---- the views: picked by name in the menu, or stepped through (V, and the glyph over the jump)
-  U.setView = function (id) { if (!live() || !Game.setView) return; try { Game.setView(id); } catch (e) { console.warn(e); } paint(); };
-  U.nextView = function (dir) { if (!live() || !Game.nextView) return; try { Game.nextView(dir || 1); } catch (e) { console.warn(e); } paint(); say('视角', viewName()); };
+  U.setView = function (id) { if (!U.dev || !live() || !Game.setView) return; try { Game.setView(id); } catch (e) { console.warn(e); } paint(); };
+  U.nextView = function (dir) { if (!U.dev || !live() || !Game.nextView) return; try { Game.nextView(dir || 1); } catch (e) { console.warn(e); } paint(); say('视角', viewName()); };
 
   // ---- a run held, and taken up again. Held, nothing of the run steps (Game.mode 'hold': the skier, the clock of the day, the animals and
   // the counts all wait) while the picture is still drawn, so the menu's changes show behind it. The world is let go gently: at three
@@ -806,6 +897,21 @@ const UI = (() => {
   // loop; the slow motion of a jump (Game.timeScale) scales the same time again inside the step, so the two multiply. However the phone is
   // being held now is 'straight ahead' again. A skier put somewhere else meanwhile (a run, another mountain) pushes off from there
   function letGo() { for (const h of held) { h.id = null; h.drop = false; h.seen = true; h.set(false); } }
+  U.nativeActive = function (active) {
+    U.nativeHidden = !active;
+    if (!active) {
+      letGo(); Input.reset(); U.pause(); App.paused = true;
+      if (Sound.ctx) Sound.ctx.suspend().catch(() => {});
+    } else if (!U.gone) {
+      App.paused = false;
+      if (Sound.ctx && Sound.unlocked) Sound.ctx.resume().catch(() => {});
+    }
+  };
+  U.nativeBack = function () {
+    if (typeof Photo !== 'undefined' && Photo.on) { Photo.exit(); return true; }
+    if (U.open) { backFromMenu(); return true; }
+    return U.pause();
+  };
   function hush(level, tau) { try { if (Sound.rig && Sound.unlocked && Sound.ctx) Sound.rig.fade(level, Sound.ctx.currentTime, tau); } catch (e) { } }
   function holdOn() {
     if (hold || U.state !== 'run') return;
@@ -826,24 +932,43 @@ const UI = (() => {
     hush(Sound.on ? Sound.level : 0, 0.12); U.keepAwake();
   }
   // (not in the headset: the menu is a page on the canvas's side of the glass, out of sight in there. Going in can blur the window)
-  U.pause = function () { if (!el || U.state !== 'run' || U.gone || XR.active) return false; if (!U.open) U.menu(true); return true; };
-  U.resume = function () { if (!el || !U.open || U.gone) return false; U.menu(false); return true; };
+  U.pause = function () { if (!el || U.state !== 'run' || U.gone || XR.active) return false; if (!U.open) U.menu('pause'); return true; };
+  U.resume = function () {
+    if (!el || !U.open || U.gone || (typeof Adventure !== 'undefined' && Adventure.run && /^(completed|failed)$/.test(Adventure.run.status))) return false;
+    resumeIntent = true; U.menu(false); return true;
+  };
   // back to the gate and the title page (the picture goes to black first; the menu's own clock times that)
-  U.toTop = function () {
+  U.toTop = function (restartAdventure = false, restartFreeSki = false) {
     if (!el || U.state !== 'run' || U.gone) return false;
+    const retry = restartAdventure && typeof Adventure !== 'undefined' && Adventure.run ? Adventure.run.level.id : null;
     U.state = 'leaving';          // (neither a run nor the title until the black is down: no key does anything)
     hold = null; U.paused = false; U.open = false; el.menu.classList.remove('on'); el.menu.setAttribute('aria-hidden', 'true'); el.app.classList.remove('menuopen'); el.mn.setAttribute('aria-expanded', 'false');
     el.cut.classList.add('slow'); el.cut.style.opacity = 1; cut = { t: 0, stage: 9, n: 0, fn: null };
     setTimeout(() => {
       el.cut.classList.remove('slow');
+      if (typeof Adventure !== 'undefined' && Adventure.run) Adventure.leave();
       if (App.swapping) App.swapping.run = false;          // (another mountain still being laid out behind its veil must not set off down it under the title)
       try { Game.reset(); Game.mode = 'title'; } catch (e) { console.warn(e); }
       settle(); Input.drag = null; Input.keys = {}; U.state = 'title'; back = null; App.resumeK = 1; App.paused = false;
       el.app.classList.remove('run'); el.hud.classList.remove('on'); el.shade.classList.remove('run'); el.hint.classList.remove('on'); el.seg.classList.remove('on'); el.title.classList.add('on'); U.hintKind = null;
       el.day.classList.remove('held');
       cut = { t: 0, stage: 1, n: 0, fn: null }; hush(Sound.on ? Sound.level : 0, 0.4); paint();
+      if (retry && Adventure.start(retry)) U.go();
+      else if (restartFreeSki) U.go();
     }, 300);
     return true;
+  };
+  U.beginAdventure = function (id) {
+    if (!App.ready || U.gone || !live() || Adventure.access(id) !== 'open') return false;
+    Adventure.stop();
+    if (U.open) U.menu(false);
+    if (!Adventure.start(id)) return false;
+    U.state = 'title'; U.go(); return true;
+  };
+  U.freeSki = function () {
+    if (!App.ready || U.gone || !live()) return false;
+    Adventure.stop(); if (U.open) U.menu(false);
+    Adventure.leave(); U.state = 'title'; U.go(); return true;
   };
   // the picture itself is gone (the graphics device was taken away: the loop tells us). Nothing can be drawn again from here: say so, start over on a tap
   U.lost = function () {

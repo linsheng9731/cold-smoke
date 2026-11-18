@@ -72,6 +72,7 @@ const XR = (() => {
 
   // ---- in and out
   X.enter = async function () {
+    if (Equipment.current() === 'snowboard') return false;
     if (X.active || X.starting || !X.ok) return;
     const gfx = App.gfx;
     // (drawn with WebGPU after all, the start-up question having been too slow to answer: start again on WebGL2; the player taps again)

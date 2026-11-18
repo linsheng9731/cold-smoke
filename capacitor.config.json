@@ -1,0 +1,22 @@
+{
+  "appId": "com.coldsmoke.game",
+  "appName": "雪迹 Cold Smoke",
+  "webDir": "dist-mobile",
+  "backgroundColor": "#05080d",
+  "loggingBehavior": "debug",
+  "plugins": {
+    "SystemBars": {
+      "hidden": true
+    }
+  },
+  "android": {
+    "minWebViewVersion": 100,
+    "allowMixedContent": false,
+    "adjustMarginsForEdgeToEdge": "auto"
+  },
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile",
+    "scrollEnabled": false
+  }
+}

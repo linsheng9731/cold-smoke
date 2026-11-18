@@ -98,7 +98,7 @@ const Course = ((vn1, vn2, h2U) => {
     KEY = hashU(C.seed) ^ hashU(HOME); KZ = Math.imul(KEY, 0x9e3779b1);
     C.segs = []; C.feats.clear(); chunks.clear(); integ.clear(); rng = RNG(FIRST ^ KEY); planned = 0; lastTypes = []; deck = []; pairs = [];
     hand = []; dealt = []; toss = RNG(KEY + TOSS);
-    const tv = typeof Variants !== 'undefined' ? Variants.val : {};
+    const tv = C.profile ? {} : typeof Variants !== 'undefined' ? Variants.val : {};
     C.lv = TERR_LV[tv.tdiff] ? tv.tdiff : 'b'; LV = tv.terr === 'b' ? TERR_LV[C.lv] : null; C.rich = !!LV; C.isl = LV ? LV.isl : 1;
     trng = RNG((KEY ^ 0x7e4a11) + 131 * C.lv.charCodeAt(0));
     planTo(4000);
@@ -160,6 +160,7 @@ const Course = ((vn1, vn2, h2U) => {
       // C.classic asks for that mountain's own order: the test scripts' way back to the mountain as it was delivered)
       if (!C.classic) type = deal();
       if (C.forceType) type = C.forceType;
+      if (C.profile) type = C.profile.types[C.segs.length % C.profile.types.length];
       lastTypes.push(type); if (lastTypes.length > 5) lastTypes.shift();
       const base = SEG_TYPES[type], p = {}, v = () => 0.85 + rng() * 0.3;
       for (const k of SEG_KEYS) p[k] = base[k];
@@ -167,9 +168,15 @@ const Course = ((vn1, vn2, h2U) => {
       if (LV) { p.slope = Math.min(0.68, p.slope * LV.slope); p.hw *= LV.hw; p.mog *= LV.mog; p.rollA *= Math.min(1, LV.slope); }
       const SK = SLOPE_K[(typeof Variants !== 'undefined' && Variants.val.slope) || 'a'] || SLOPE_K.a;
       if (SK.k !== 1) p.slope *= SK.k;
+      if (C.profile) {
+        p.slope = base.slope * C.profile.slope;
+        p.hw = base.hw * C.profile.width;
+        p.forest *= C.profile.forest;
+      }
       let len = C.segs.length === 0 ? 590 : SEG_PACE[type] * (27 + rng() * 6);       // about half a minute each
       if (LV && C.segs.length) len *= LV.pace;
       if (SK.pace !== 1 && C.segs.length) len *= SK.pace;
+      if (C.profile) len = C.profile.length;
       const seg = { type, s0: planned, len, p, idx: C.segs.length, seed: (rng() * 1e9) | 0 };
       C.segs.push(seg);
       if (p.kick > 0) {   // a line of jumps down the middle, alternating sides slightly; a pair of young spruce marks each lip (mark)

@@ -812,8 +812,9 @@ fn frag(v: VOut) -> FOut {
   }
   // called once a frame by the views (07b_views.js): dt seconds of game time, fpc how far the lens is into the helmet (0..1)
   F.tick = function (dt, fpc, tk) {
+    if (Game.equipment === 'snowboard') fpc = 0;
     F.k = fpc; F.tk = tk || 0; PH.dt += dt;
-    if (!F.starting && !F.dead && typeof App !== 'undefined' && App.gfx && typeof Skier !== 'undefined' && Skier.ready) F.init();
+    if (Game.equipment !== 'snowboard' && !F.starting && !F.dead && typeof App !== 'undefined' && App.gfx && typeof Skier !== 'undefined' && Skier.ready) F.init();
     if (fpc <= 0) { if (F.posed) { SD[0].init = SD[1].init = SD[0].init0 = true; PH.v = null; F.posed = false; } PH.dt = 0; }
     F.vis = F.ready && !F.dead && fpc >= F.swap; PH.own = smooth(F.swap, 1, fpc);
     // the view of the ski tips: the arms are drawn until they are down behind the lens, the figure is left out once the lens has left the helmet

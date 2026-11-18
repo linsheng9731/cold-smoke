@@ -78,6 +78,7 @@
     const c = e.code;
     if (c === 'KeyI' || c === 'KeyJ' || c === 'KeyK' || c === 'KeyL') { look.keys[c] = true; return; }
     if (e.repeat) return;
+    if (!(typeof DEV !== 'undefined' && DEV)) return;
     if (c === 'KeyV') G.nextView(e.shiftKey ? -1 : 1);
     else { const m = /^(?:Digit|Numpad)([1-9])$/.exec(c); if (m && G.views[m[1] - 1]) G.setView(G.views[m[1] - 1].id); }
   });
