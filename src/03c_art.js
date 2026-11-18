@@ -1,5 +1,8 @@
 const Art = (() => {
   const files = {
+    menu_home: 'art/backgrounds/menu-home.webp',
+    gear_ski: 'art/backgrounds/gear-ski.webp',
+    gear_snowboard: 'art/backgrounds/gear-snowboard.webp',
     bg_zone_01_frost_valley: 'art/backgrounds/zones/bg_zone_01_frost_valley.webp',
     bg_zone_02_north_face: 'art/backgrounds/zones/bg_zone_02_north_face.webp',
     bg_zone_03_sky_peak: 'art/backgrounds/zones/bg_zone_03_sky_peak.webp',

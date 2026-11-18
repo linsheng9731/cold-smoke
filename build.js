@@ -13,7 +13,11 @@ for (const [name, relative] of Object.entries(artContext.__art.files)) {
 }
 let js = 'self.COLD_SMOKE = { ...self.COLD_SMOKE, betaPreview: true };\nself.COLD_SMOKE_ART = ' + JSON.stringify(art) + ';\n';
 for (const f of files) js += '\n// ===== ' + f + ' =====\n' + fs.readFileSync(path.join(srcDir, f), 'utf8');
-const tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8');
+const displayFont = 'fonts/BarlowCondensed-BlackItalic.woff2';
+const barlowLicense = fs.readFileSync(path.join(root, 'mobile', 'licenses', 'Barlow-OFL.txt'), 'utf8');
+const tpl = fs.readFileSync(path.join(root, 'template.html'), 'utf8').replace(displayFont,
+  'data:font/woff2;base64,' + fs.readFileSync(path.join(root, 'xhs', displayFont)).toString('base64'))
+  .replace('<style>', () => '<!--\n' + barlowLicense + '\n-->\n<style>');
 const out = tpl.replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist', 'index.html'), out);

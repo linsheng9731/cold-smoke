@@ -192,6 +192,9 @@ test('offline build contains a full document, local fonts, CSP and no remote fon
     assert.ok(fs.statSync(path.join(root, 'dist-mobile/fonts', font + '.woff2')).size > 0);
     assert.ok(read('dist-mobile/licenses/' + font + '-OFL.txt').includes('SIL OPEN FONT LICENSE'));
   }
+  assert.match(html, /url\(fonts\/BarlowCondensed-BlackItalic\.woff2\)/);
+  assert.ok(fs.statSync(path.join(root, 'dist-mobile/fonts/BarlowCondensed-BlackItalic.woff2')).size > 0);
+  assert.match(read('dist-mobile/licenses/Barlow-OFL.txt'), /SIL OPEN FONT LICENSE/);
 });
 
 test('existing dependency-free web build remains separate from the native bridge', () => {

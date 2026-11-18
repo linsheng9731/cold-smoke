@@ -28,6 +28,7 @@ const polyfills = fs.readFileSync(path.join(root, 'xhs', 'polyfills.js'), 'utf8'
 
 // ---- markup and style: the template without its script, its claude.ai meta, inside a whole document
 let body = cssFallbacks(tpl.slice(0, m.index)).replace(/<title>[\s\S]*?<\/title>\s*/, '').replace(/<meta name="claude:[^>]*>\s*/g, '');
+const barlowLicense = fs.readFileSync(path.join(root, 'mobile', 'licenses', 'Barlow-OFL.txt'), 'utf8');
 const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -113,6 +114,7 @@ fs.writeFileSync(raw, polyfills + '\nself.COLD_SMOKE.build = ' + JSON.stringify(
 execFileSync('npx', ['--yes', 'esbuild@0.24.2', raw, '--target=chrome61', '--minify', '--charset=utf8', '--legal-comments=none', '--outfile=' + path.join(out, 'app.js'), '--log-level=warning'], { stdio: 'inherit', cwd: root });
 fs.unlinkSync(raw);
 for (const f of fs.readdirSync(path.join(root, 'xhs', 'fonts'))) fs.copyFileSync(path.join(root, 'xhs', 'fonts', f), path.join(out, 'fonts', f));
+fs.writeFileSync(path.join(out, 'fonts', 'Barlow-OFL.json'), JSON.stringify({ license: barlowLicense }, null, 2));
 const artRoot = path.join(root, 'art');
 fs.cpSync(artRoot, path.join(out, 'art'), {
   recursive: true,

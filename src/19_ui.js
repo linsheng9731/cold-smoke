@@ -19,7 +19,7 @@ const UI = (() => {
       say: $('say'), sayK: $('say-k'), sayV: $('say-v'), cut: $('cut'), jump: $('jump'), tuck: $('tuck'),
       pause: $('pause'), pauseS: $('pause-s'), pauseT: $('pause-t'), steer: $('steer'), steerV: $('steer-v'),
       clk: $('clock'), clkT: $('clk-t'), clkS: $('clk-s'), clkG: $('clk-g') };
-    const homeArt = Art.url(Art.chapters.pine);
+    const homeArt = Art.url('menu_home');
     el.title.style.setProperty('--home-art', homeArt ? 'url("' + homeArt + '")' : 'none');
     // developer mode (?dev, or a path ending in /dev; never in the 小红书 build). The time, the weather, the encounters and the versions
     // are only there. Taken out of the tree, not merely hidden, so a normal player cannot reach them.
@@ -47,15 +47,17 @@ const UI = (() => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const tag = e.target && e.target.tagName; if (tag === 'INPUT' || tag === 'TEXTAREA') return;     // (a number in the developer panel keeps its own keys)
       if (homeButtonOwnsKey(e)) return;
+      const activate = e.code === 'Enter' || e.code === 'Space';
+      if (activate && e.target?.closest?.('#menu button, #bar button, #more button')) { muteKey(e.code); return; }
       if (/^Arrow/.test(e.code) || e.code === 'Space') e.preventDefault();          // these would scroll a page; here they ski
       if (e.repeat) return;
-      const on = sel => e.target && e.target.closest && e.target.closest(sel);      // (a control reached with the tab key takes its own Enter)
       if (U.gone) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); location.reload(); } return; }
-      // the menu open: Esc puts it away (and the run goes on); Enter and space belong to the button that has the focus
-      const mine = (e.code === 'Enter' || e.code === 'Space') && on('#menu button, #bar button, #more button');
       if (U.open && e.code === 'Escape') { e.preventDefault(); backFromMenu(); return; }
-      if (mine) { muteKey(e.code); return; }
-      if (U.open && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); muteKey(e.code); el.mGo.click(); return; }          // (nothing in the menu has the focus: Enter, or space as the owner asked, is the top line, 继续滑 or 出发)
+      if (U.open && activate) {
+        e.preventDefault(); muteKey(e.code);
+        if (el.menu.dataset.screen === 'legacy') el.mGo.click();
+        return;
+      }
       if ((e.code === 'Enter' || e.code === 'Space') && U.state === 'title' && !U.open) { e.preventDefault(); muteKey(e.code); U.go(); }
       else if (e.code === 'KeyM') { U.sound(!Sound.on); if (U.open) paint(); }
       else if (e.code === 'KeyF') U.fullscreen();
@@ -487,11 +489,14 @@ const UI = (() => {
     if (U.state === 'run') {
       if (el.menu.dataset.screen === 'pause') U.resume();
       else show('pause');
-    } else U.menu(false);
+    } else if (el?.menu.dataset.screen === 'gear' && el.menu.dataset.gearBack === 'adventure') show('adventure');
+    else U.menu(false);
   }
   function show(s) {
     if (!U.dev && (s === 'view' || s === 'sky' || s === 'ev' || s === 'vers' || s === 'seg')) s = 'adventure';
-    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure'; sec = s;
+    if (!el.pane.querySelector('section[data-sec="' + s + '"]')) s = 'adventure';
+    el.menu.dataset.gearBack = s === 'gear' && U.open && sec === 'adventure' ? 'adventure' : '';
+    sec = s;
     const concept = ['adventure', 'gear', 'records', 'pause'].includes(s);
     el.menu.dataset.screen = concept ? s : 'legacy';
     for (const b of el.nav.querySelectorAll('button[data-sec]')) b.classList.toggle('on', b.dataset.sec === s);
@@ -521,12 +526,12 @@ const UI = (() => {
     if (resume) resume.disabled = !!(run && /^(completed|failed)$/.test(run.status));
     if (!run) return;
     const remaining = Math.max(0, Math.ceil(run.level.limit - run.elapsed)), mm = Math.floor(remaining / 60), ss = String(remaining % 60).padStart(2, '0');
-    const gate = document.createElement('img'), gateUrl = Art.url('icon_gate');
-    if (gateUrl) { gate.src = gateUrl; gate.addEventListener('error', () => gate.removeAttribute('src')); }
-    gate.alt = ''; gate.className = 'pause-meta-icon';
-    root.append(gate, document.createTextNode(T('当前关卡') + ' · ' + T(run.level.name) + '   /   ' +
-      T('关卡进度') + ' ' + run.next + '/' + run.checkpoints.length + '   /   ' +
-      T('剩余') + ' ' + mm + ':' + ss));
+    for (const [label, value] of [['当前关卡', T(run.level.name)], ['关卡进度', run.next + '/' + run.checkpoints.length], ['剩余', mm + ':' + ss]]) {
+      const stat = document.createElement('span');
+      stat.textContent = value;
+      stat.setAttribute('aria-label', T(label) + ': ' + value);
+      root.appendChild(stat);
+    }
   }
   // U.menu(): open or close; U.menu('view'): open at that part (or, open at it already, close)
   U.menu = function (on) {

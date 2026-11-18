@@ -1,8 +1,10 @@
 # UI art source
 
-These files come from the user-supplied SNOW RUSH asset pack. The source pack identifies its images as AI-generated with the prompts recorded in `docs/generation_prompts.json`; source-file SHA-256 values are copied from its `docs/asset_manifest.json`. We resized and re-encoded only the backgrounds and thumbnails used by Cold Smoke, converted the frost texture to grayscale WebP, and removed the root `color="white"` attribute from the six copied SVG icons so they can use `currentColor`.
+The files listed below come from the user-supplied SNOW RUSH asset pack. The source pack identifies its images as AI-generated with the prompts recorded in `docs/generation_prompts.json`; source-file SHA-256 values are copied from its `docs/asset_manifest.json`. We resized and re-encoded only the backgrounds and thumbnails used by Cold Smoke, converted the frost texture to grayscale WebP, and removed the root `color="white"` attribute from the six copied SVG icons so they can use `currentColor`.
 
 The asset pack's license must be confirmed before public release. The repository's MIT license does not cover these assets.
+
+`backgrounds/menu-home.webp`, `backgrounds/gear-ski.webp`, and `backgrounds/gear-snowboard.webp` are separately AI-generated illustrations guided by the supplied concepts, then cropped and encoded as WebP. They do not depict live gameplay or introduce equipment models or attributes.
 
 ## Source SHA-256
 

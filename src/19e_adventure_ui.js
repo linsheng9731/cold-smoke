@@ -71,16 +71,10 @@ const AdventureUI = (() => {
     const chapter = AdventureLevels.chapters.find(c => c.id === chapterId) || AdventureLevels.chapters[0];
     const level = AdventureLevels.get(selectedId);
     const map = level ? Art.levels[level.id] : null, background = Art.url(map ? map.background : Art.chapters[chapterId]);
+    root.style.setProperty('--adv-art', background ? 'url("' + background + '")' : 'none');
     const hero = node('div', '', 'adv-hero');
-    const frost = Art.url('tex_frost');
-    hero.style.setProperty('--frost-art', frost ? 'url("' + frost + '")' : 'none');
-    const backdrop = node('div', '', 'adv-backdrop');
-    backdrop.style.backgroundImage = background
-      ? 'linear-gradient(90deg, rgba(7,14,25,.96), rgba(7,14,25,.78) 48%, rgba(7,14,25,.25)), url("' + background + '")'
-      : 'linear-gradient(115deg, #0b1220, #18293c 58%, #27384a)';
-    hero.appendChild(backdrop);
     const detail = node('div', '', 'adv-detail');
-    detail.append(node('p', T('选中关卡'), 'adv-eyebrow'));
+    let start;
     if (level) {
       const current = Equipment.current(), record = Adventure.record(level.id, current), state = access(level.id);
       const title = node('h2', T(level.name), 'adv-level-title');
@@ -103,11 +97,9 @@ const AdventureUI = (() => {
       if (state === 'progress') detail.appendChild(node('p', T('先完成上一关'), 'adv-lock-reason'));
       else if (state === 'demo') detail.appendChild(node('p', T(Adventure.isBeta() ? '体验解锁（不扣费）' : '开发中'), 'adv-lock-reason'));
       else if (state === 'unreleased') detail.appendChild(node('p', T('开发中'), 'adv-lock-reason'));
-      detail.appendChild(button('器材', () => UI.menu('gear')));
-      const start = button(state === 'open' ? '开始挑战' : state === 'demo' ? '体验解锁（不扣费）' : state === 'unreleased' ? '开发中' : '先完成上一关',
+      start = button(state === 'open' ? '开始挑战' : state === 'demo' ? '体验解锁（不扣费）' : state === 'unreleased' ? '开发中' : '先完成上一关',
         () => { if (state === 'open') begin(level.id); }, true);
       start.classList.add('adv-start'); start.disabled = state !== 'open';
-      detail.appendChild(start);
     } else {
       detail.append(node('h2', T(chapter.name), 'adv-level-title'), node('p', T(chapter.subtitle), 'adv-description'),
         node('p', T('开发中') + ' · ' + T('开发中关卡'), 'adv-lock-reason'));
@@ -161,8 +153,11 @@ const AdventureUI = (() => {
       row.appendChild(c);
     }
     root.appendChild(row);
-    root.append(node('p', T('通关即可前进，满星不是解锁条件。') + ' ' + T('解锁共用，星级和最佳用时按器材分别记录。'), 'adv-note'));
-    root.append(node('p', T('进度仅保存在本机，卸载可能丢失。'), 'adv-note'));
+    const footer = node('div', '', 'adv-footer');
+    footer.append(node('p', T('通关即可前进，满星不是解锁条件。') + ' ' + T('解锁共用，星级和最佳用时按器材分别记录。'), 'adv-note'),
+      node('p', T('进度仅保存在本机，卸载可能丢失。'), 'adv-note'));
+    if (start) footer.appendChild(start);
+    root.appendChild(footer);
     if (Adventure.storageWarning) root.append(node('p', T('无法保存进度，本次仍可游玩。'), 'adv-warning'));
     if (scrollSelected) requestAnimationFrame(() => root.querySelector('.adv-card.selected')?.scrollIntoView({ block: 'nearest', inline: 'center' }));
   };

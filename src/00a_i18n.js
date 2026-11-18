@@ -124,6 +124,7 @@ const I18N = (() => {
     '按住压低，慢的时候自动撑杖': 'Hold to tuck; poles by itself when slow', '机位': 'Camera', '两指拖动': 'Two-finger drag', 'Shift + 字母 往回切换。': 'Shift + the letter steps back.',
     '声音 开': 'Sound on', '声音 关': 'Sound off', '画质 自动': 'Quality: auto', '画质 高': 'Quality: high', '画质 均衡': 'Quality: balanced', '画质 流畅': 'Quality: smooth', '语言': 'Language',
     '冒险模式': 'Adventure Mode', '器材': 'Gear', '记录': 'Records', '冒险星级': 'Adventure stars',
+    '开始游戏': 'Play', '本机记录': 'Records', '不设旗门 · 自由探索': 'Explore without gates',
     '当前使用': 'IN USE', '使用此器材': 'Use this equipment', '器材预览': 'GEAR PREVIEW', '本局记录': 'Records on this gear',
     '滑行器材': 'Equipment', '关卡记录': 'LEVEL RECORDS', '关卡': 'Level', '尚无记录': 'No records yet', '最佳用时': 'Best time',
     '双板星级': 'Ski stars', '单板星级': 'Snowboard stars', '选中关卡': 'SELECTED LEVEL',

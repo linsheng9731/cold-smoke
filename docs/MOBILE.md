@@ -119,9 +119,9 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App \
 本版 Android `versionCode=2`，iOS `CURRENT_PROJECT_VERSION=2`。连续侧载内测必须使用同一签名身份并递增版本；不同机器的 debug key 可能不同。iOS 真机仍需 Apple Team、已登记设备与合法签名，Simulator `.app` 不能装到 iPhone。
 
 
-## UI 与菜单美术（1.3.0-beta.1）
+## UI 与菜单美术（1.3.0-beta.2）
 
-Home、冒险选关、器材、记录和暂停页面采用深海军蓝与橙色视觉系统。菜单资源来自根目录 `art/`，浏览器构建将引用资源内嵌为 data URI；Android、iOS 和小红书离线包将 `art/` 与相对路径一起复制。缺图时 UI 使用纯色渐变回退。3D 世界、物理、关卡解锁和存档键保持不变。
+主菜单使用暮色雪山与人物主视觉；选关使用章节横条与下方关卡卡片；器材展示双板／单板人物插画；暂停以左侧切角面板叠在当前滑行画面上。菜单资源来自根目录 `art/`，浏览器构建将引用资源内嵌为 data URI；Android、iOS 和小红书离线包将 `art/` 与相对路径一起复制。缺图时 UI 使用纯色渐变回退。3D 世界、物理、关卡解锁和存档键保持不变。
 
 `art/SOURCE.md` 记录了用户提供的资源包来源、原始清单 SHA-256 和处理方式。资源许可须在公开发布前另行确认。
 
@@ -132,7 +132,7 @@ Home、冒险选关、器材、记录和暂停页面采用深海军蓝与橙色�
 - 自由滑与五个现有关卡均支持两种器材。章节解锁与不扣费内测权益共用；星级、最佳用时、自由滑山地及每日成绩按器材分开。旧存档原地保留为双板成绩，不复制为单板成绩。
 - 双板继续使用原键；新增 `coldsmoke.equipment.v1`、`coldsmoke.adventure.snowboard.v1`、`coldsmoke.skied.snowboard.v1`、`coldsmoke.daily.snowboard.v1`、`coldsmoke.playtime.snowboard.v1`。未知版本不覆盖，存储失败仍可游玩。单板时长只在有效滑行累计，不提交现有小红书双板榜。
 - 普通游戏仍固定追尾，拍照自由镜头与导演镜头 API 保留。开发者单板第一人称使用实际角色，不套用双板手臂/双板雪杖的专用第一人称模型；本轮未针对该开发者视角调优。
-- Android `versionCode=5`；iOS `CURRENT_PROJECT_VERSION=5`、营销版本 1.3.0。Android debug 包仅供内测，iOS 真机仍需签名。器材预览与确认分离，运行中器材锁定。
+- Android `versionCode=6`；iOS `CURRENT_PROJECT_VERSION=6`、营销版本 1.3.0。Android debug 包仅供内测，iOS 真机仍需签名。器材预览与确认分离，运行中器材锁定。
 - `npm test` 对双板、单板各自模拟五关通关（不传送），并测试器材持久化、存档隔离、未知版本保护、无隐藏撑杖推进、固定站姿、暂停时长与排行榜隔离。全部物理测试约需 3–4 分钟；不能据此宣称触控手感、双渲染器画面或真机性能通过。
 
 ## 环境复用

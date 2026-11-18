@@ -151,7 +151,7 @@ test('adventure cards select without starting, open levels start explicitly, and
     constructor(tag = 'div') {
       this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.handlers = {}; this.attrs = {}; this.style = {};
       this.className = ''; this.classList = { add: name => { if (!this.className.split(' ').includes(name)) this.className += ' ' + name; }, toggle() {} };
-      this.style.setProperty = () => {}; this.isConnected = true;
+      this.style.setProperty = (name, value) => { this.style[name] = value; }; this.isConnected = true;
     }
     set textContent(value) { this.text = value; this.children = []; }
     append(...nodes) { this.children.push(...nodes); nodes.forEach(n => { n.parentNode = this; }); }
@@ -179,6 +179,7 @@ test('adventure cards select without starting, open levels start explicitly, and
   let root = elements['adv-content'], row = root.children.find(n => n.className === 'adv-level-row');
   row.children.find(n => n.dataset.level === 'pine-2').click();
   assert.deepEqual(starts, []);
+  assert.equal(root.querySelector('.adv-start').parentNode.className, 'adv-footer');
   root.querySelector('.adv-start').click();
   assert.deepEqual(starts, ['pine-2']);
   const tabs = root.children.find(n => n.className === 'adv-tabs');
@@ -204,7 +205,7 @@ test('adventure cards select without starting, open levels start explicitly, and
   root.children.find(n => n.className === 'adv-tabs').children.find(n => n.dataset.chapter === 'ridge').click();
   root = elements['adv-content']; row = root.children.find(n => n.className === 'adv-level-row');
   assert.ok(row.children.every(card => card.disabled));
-  assert.match(root.children.find(n => n.className === 'adv-hero').children[0].style.backgroundImage, /bg_zone_03_sky_peak/);
+  assert.match(root.style['--adv-art'], /bg_zone_03_sky_peak/);
   assert.equal(root.querySelector('.adv-start'), null);
 });
 test('pause restart re-enters the same adventure level without changing its equipment', () => {
@@ -281,22 +282,20 @@ test('Escape and Android back resume from pause but return sub-screens to pause'
   menu.dataset.screen = 'pause'; assert.equal(UI.nativeBack(), true);
   menu.dataset.screen = 'records'; assert.equal(UI.nativeBack(), true);
   assert.deepEqual(calls, ['resume', ['show', 'pause'], 'resume', ['show', 'pause']]);
+  UI.state = 'title'; menu.dataset.screen = 'gear'; menu.dataset.gearBack = 'adventure';
+  context.backFromMenu(); assert.deepEqual(calls.at(-1), ['show', 'adventure']);
+  menu.dataset.gearBack = '';
+  context.backFromMenu(); assert.deepEqual(calls.at(-1), ['menu', false]);
 });
-test('short screens keep the required Home, Adventure, and Pause controls compact', () => {
+test('concept menus retain separate controls, without a second way to leave pause', () => {
   const template = read('template.html');
-  assert.match(template, /#app\.short \.home-top \{ right: calc\(var\(--gr\) \+ 88px\)/);
-  assert.match(template, /#app\.short #title \.home-kicker, #app\.short #title h1 \{ display: none/);
-  assert.match(template, /#app\.short #title \.how, #app\.short \.home-footer \.keys, #app\.short \.home-footer \.more \{ display: none/);
+  assert.match(template, /data-home-sec="adventure"/);
+  assert.match(template, /data-home-action="free"/);
+  assert.match(template, /<button[^>]*home-controls[^>]*data-home-sec="keys"/);
   assert.match(template, /#app\.menuopen #clock, #app\.menuopen #day, #app\.menuopen #hud \.spd/);
-  assert.match(template, /#app\.short \.adv-hero \{ min-height: 128px; height: 128px/);
-  assert.ok(template.includes('#app.short .adv-detail { gap: 0; padding: 4px 12px; }'));
-  assert.ok(template.includes('#app.short .adv-detail > .adv-lock-reason, #app.short .adv-detail > button:not(.adv-start) { display: none; }'));
-  assert.match(template, /#app\.short \.adv-card \{[^}]*height: 74px/);
-  assert.match(template, /#app\.short \.pause-actions button \{ min-height: 44px/);
   const pauseScreen = template.match(/<section data-sec="pause"[\s\S]*?<\/section>/)[0];
   assert.doesNotMatch(pauseScreen, /class="screen-back"/);
-  assert.match(template, /<button type="button" class="pill" data-sec="keys">操作说明<\/button>/);
-  assert.doesNotMatch(template, /界面菜单使用随附美术/);
+  assert.match(pauseScreen, /id="pause-resume"/);
 });
 test('completed and failed Adventure results keep the requested result screen instead of opening Pause', () => {
   const source = read('src/19_ui.js'), start = source.indexOf('  U.menu = function (on) {'), end = source.indexOf('\n  // (the old name of the open/close', start);
@@ -498,8 +497,8 @@ test('all equipment UI and control hints have English translations', () => {
 
 test('equipment buttons keep their base and selected styles above the adventure menu reset', () => {
   const html = read('template.html');
-  assert.match(html, /#menu \.equipment button\s*\{[^}]*border: 1px solid var\(--hair\)/);
-  assert.match(html, /#menu \.equipment button\[aria-pressed="true"\]\s*\{[^}]*border-color: var\(--sun\); color: var\(--sun\)/);
+  assert.match(html, /#menu \.gear-list \.equipment button\s*\{[^}]*background: #0f1927e8/);
+  assert.match(html, /#menu \.gear-list \.equipment button\[aria-pressed="true"\]\s*\{[^}]*background: linear-gradient/);
 });
 
 test('gear browsing only previews; confirmation alone changes equipment and stays locked during a run', () => {
@@ -515,13 +514,17 @@ test('gear browsing only previews; confirmation alone changes equipment and stay
   const h = harness(); h.c.UI.state = 'title';
   h.c.document = { createElement: tag => new Element(tag) };
   vm.runInContext(read('src/19f_equipment_ui.js') + '\nglobalThis.equipmentUI = EquipmentUI;', h.c);
-  const group = h.c.equipmentUI.append(new Element()), [ski, board, confirm] = group.querySelectorAll('button');
+  const details = new Element(), group = h.c.equipmentUI.append(new Element(), details);
+  const [ski, board] = group.querySelectorAll('button'), [confirm] = details.querySelectorAll('button');
   let stopped = 0, prevented = 0;
   group.handlers.pointerdown({ stopPropagation() { stopped++; } }); board.click(); h.c.equipmentUI.refresh();
   group.handlers.keydown({ code: 'Space', repeat: false, target: ski, stopPropagation() { stopped++; }, preventDefault() { prevented++; } });
   assert.equal(h.Game.mode, 'title'); assert.equal(h.Equipment.selected, 'ski'); assert.equal(stopped, 2); assert.equal(prevented, 1);
   board.click(); h.c.equipmentUI.refresh(); assert.equal(board.attrs['aria-pressed'], 'true');
   assert.equal(h.Equipment.selected, 'ski'); confirm.click(); assert.equal(h.Equipment.selected, 'snowboard');
+  h.c.equipmentUI.refresh();
+  assert.equal(board.dataset.inUse, 'true');
+  assert.equal(ski.dataset.inUse, 'false');
   h.Game.mode = 'run'; h.c.UI.state = 'run'; h.c.equipmentUI.refresh();
   assert.equal(board.disabled, true); assert.equal(ski.disabled, true); assert.equal(confirm.disabled, true);
 });
